@@ -1,0 +1,72 @@
+# PREPARED, not executed. Replace /srv paths and SCORER_HOST on NVIDIA hosts.
+max_steps = 1
+seq_len = 4096
+output_dir = "/srv/rsi/runs"
+clean = false
+
+[run]
+name = "training-cuda-first-one-update"
+
+[model]
+name = "/srv/rsi/policy/qwen3-coding-policy"
+
+[deployment]
+type = "single_node"
+gpus_per_node = 2
+num_train_gpus = 1
+num_infer_gpus = 1
+
+[trainer]
+
+[trainer.optim]
+lr = 1e-6
+
+[ckpt]
+
+[inference.vllm]
+max_model_len = 4096
+
+[orchestrator]
+batch_size = 4
+max_off_policy_steps = 0
+
+[orchestrator.concurrency]
+initial_inflight = 2
+min_inflight = 1
+max_inflight = 2
+
+[orchestrator.renderer]
+name = "prime-qwen3"
+
+[orchestrator.train]
+group_size = 2
+
+[orchestrator.train.sampling]
+temperature = 1.0
+top_p = 1.0
+max_completion_tokens = 2048
+
+[[orchestrator.train.source]]
+name = "rsi-training-train"
+serve.address = "tcp://SCORER_HOST:5557"
+serve.pool.type = "static"
+serve.pool.num_workers = 1
+serve.max_concurrent = 1
+env.taskset.id = "rsi-coding-suite"
+env.taskset.environments = ["training"]
+env.taskset.split = "train"
+env.taskset.seed = 14
+env.taskset.count = 2
+env.agent.runtime.type = "subprocess"
+env.agent.harness.id = "rsi-coding-suite"
+env.agent.harness.checkout = "/srv/rsi/source"
+env.agent.harness.python = "/srv/rsi/scorer-venv/bin/python"
+env.agent.harness.data_dir = "/srv/rsi/data"
+env.agent.harness.output_dir = "/srv/rsi/evidence/train"
+env.agent.harness.device = "cuda"
+env.agent.harness.profile = "standard"
+env.agent.harness.compatibility_only = false
+env.agent.harness.calibration = "/srv/rsi/calibration/cuda-standard.json"
+env.agent.harness.horizon = 1
+env.agent.harness.max_output_tokens = 2048
+

@@ -1,5 +1,12 @@
 # Change log
 
+## v0.1.0-alpha.3 — October 14, 2026
+
+- Record one independently reviewed real TinyStories inner-GPT smoke on Apple MPS: 5,063,424 parameters, 3 scheduled training calls (2 with positive learning rate), 96 training tokens and 64 development grading tokens.
+- Publish sanitized protocol, device-boundary evidence, source/data/weight hashes and a public CLI reproduction command. The observation wrappers were independently checked; the public command repeats the uninstrumented workload and does not recreate the wrapper audit.
+- Add a [NVIDIA training guide](docs/nvidia-training.md) and exact Mac-validated Prime-RL example configs; actual NVIDIA execution remains pending.
+- Keep scope explicit: no before/after learning gain, standard CUDA execution or coding-agent RL update is established. See [VALIDATION.md](VALIDATION.md) and [the Apple GPU check](docs/apple-gpu-check.md).
+
 ## v0.1.0-alpha.2 — October 14, 2026
 
 - Make the inference task rules/probe contract available in installed packages; tighten cache probes, infrastructure error attribution and lazy CPU thread limits.

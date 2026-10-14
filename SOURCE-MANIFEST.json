@@ -1,10 +1,9 @@
 {
   "schema_version": 1,
-  "release": "v0.1.0-alpha.2",
+  "release": "v0.1.0-alpha.3",
   "date": "2026-10-14",
-  "scope": "source-only limited CPU alpha",
-  "source_basis": "independently frozen native source snapshot16; public composition and documentation checked separately",
-  "native_source_manifest_sha256": "f074e6b80684e9641a6524ec8115d9f8978558287ad550511f5fe8916c21bbd7",
+  "scope": "source-only Apple GPU functional evidence release; NVIDIA execution pending",
+  "source_basis": "unchanged alpha2 runtime;11 training/shared files exactly match independently verified MPS execution",
   "files": [
     {
       "path": ".gitignore",
@@ -13,8 +12,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 2356,
-      "sha256": "c23a87939441794b085fbdc0d49a13c5877df319ca528dead1fb0b81509a0b08"
+      "bytes": 3241,
+      "sha256": "07266ed2c4b7fd0d4e8de3314572a9e369ee629765cf8692be50b7aed510e975"
     },
     {
       "path": "CONTRIBUTING.md",
@@ -28,13 +27,38 @@
     },
     {
       "path": "README.md",
-      "bytes": 7825,
-      "sha256": "0bef10a36e3318c3b98a50ed1511be34bbfbe5d6bf8eaec6f0740b87786b66d2"
+      "bytes": 9027,
+      "sha256": "51a7e99e6c07d998a5da7f408f90b41d6cd84c34bdc33b785f26abb547931e7d"
     },
     {
       "path": "VALIDATION.md",
-      "bytes": 4368,
-      "sha256": "c1f8ce40ab4bb7c0f6449e0851836db5f008dcfb67b8a0c9ad1686250fd2f1fb"
+      "bytes": 6413,
+      "sha256": "31e00d586b6c251ed273dc2eb9c5a9e1ac432c57ed9877dd74d3d775977f78ea"
+    },
+    {
+      "path": "docs/apple-gpu-check.json",
+      "bytes": 4555,
+      "sha256": "82ad90ee4f72d437c964fc198e5729c25a37eae741f9acf4cc5bb7faa326e499"
+    },
+    {
+      "path": "docs/apple-gpu-check.md",
+      "bytes": 2730,
+      "sha256": "1a4cba01f0f7c34d36fcd08fe598036b378704f55c226e702bbf093cdb329710"
+    },
+    {
+      "path": "docs/nvidia-example-env-server.toml",
+      "bytes": 640,
+      "sha256": "e031b3a9d4af1c7cdd6e66ea6752ba526dc154351a202065485c28cb1db55e64"
+    },
+    {
+      "path": "docs/nvidia-example-training-rl.toml",
+      "bytes": 1622,
+      "sha256": "0724ad3ae800a1dc2ec24cf6786f8db91e0ef5866fbdd29d67aa802b17776db3"
+    },
+    {
+      "path": "docs/nvidia-training.md",
+      "bytes": 10300,
+      "sha256": "2c4fa680184f9c03a9e8d85039f2ee18168c1141b286328edc86c852f9c9945a"
     },
     {
       "path": "inference/CHANGELOG.md",
@@ -513,8 +537,8 @@
     },
     {
       "path": "release-checks.json",
-      "bytes": 4464,
-      "sha256": "1377b336beaf4a6df515354e29c01cfd2797aef119c76b87a2bfd764a8fc4aec"
+      "bytes": 5754,
+      "sha256": "6549967da41883677383ffab5b5bf0c31fcac45c44ae1165e6cfd4116ea76a9b"
     },
     {
       "path": "suite/LICENSE",
@@ -827,12 +851,19 @@
       "sha256": "f49a74f639a1d5afe11d40d824068926d57108c98e13bf6a43f948e2da5bfb94"
     }
   ],
-  "file_count_excluding_this_manifest": 164,
-  "excluded": "model weights, datasets, dependencies, runs, private coordination and experimental coding-policy optimizer",
+  "file_count_excluding_this_manifest": 169,
+  "excluded": [
+    "localruns",
+    "weights",
+    "data",
+    "dependencies",
+    "privateevidence",
+    "secrets"
+  ],
   "claims": {
-    "outer_policy_updates": false,
-    "policy_learning_gain": false,
-    "standard_accelerator_reward": false,
-    "external_adoption": false
+    "inner_gpt_mps_smoke_verified": true,
+    "standard_cuda_executed": false,
+    "outer_policy_updated": false,
+    "learning_gain_measured": false
   }
 }

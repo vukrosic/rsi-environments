@@ -1,5 +1,38 @@
 # Validation and evidence scope
 
+## v0.1.0-alpha.3 — October 14, 2026
+
+One real TinyStories inner-GPT smoke completed on Apple MPS under the public
+`training-v1.1-fixed-steps` smoke protocol. The run had 5,063,424 unique model
+parameters, 3 scheduled training calls (2 with positive learning rate), 96
+training tokens and 64 development grading tokens. The observed development
+loss was 8.111218929290771; this is a single terminal loss, with no initial-loss
+comparison or learning-gain claim. The smoke reward is excluded from RL
+training.
+
+An independent source/checkpoint/receipt review checked the observation
+wrappers, original starter function behavior, MPS tensor boundaries, finite
+state and initial/final weight hashes. That review establishes execution at
+observed MPS tensor boundaries; CPU metadata, preprocessing, storage,
+synchronization and instrumentation also participate. The public reproduction
+command in [docs/apple-gpu-check.md](docs/apple-gpu-check.md) repeats the
+unchanged starter workload without the private observation wrappers, so it does
+not reproduce the full hash instrumentation or device-boundary receipt.
+
+| Environment | Apple MPS evidence | CUDA scope |
+|---|---|---|
+| Inference optimization | Existing supported runtime is macOS CPU/Apple MPS | Unsupported |
+| Training improvement | One real-data smoke completed on MPS | Not executed; compatibility not established |
+| Kernel optimization | Apple/Metal paths exist for selected tasks | Conditional on backend and task; not executed in this release |
+
+No before/after inner-model learning gain, standard-budget accelerator run,
+standard CUDA execution, coding-agent weight update, learned policy gain, or
+recursive improvement is established. See the sanitized machine-readable
+[Apple GPU evidence](docs/apple-gpu-check.json). Historical alpha2 and alpha1
+checks below retain their original scope. The [NVIDIA guide](docs/nvidia-training.md)
+and example configurations are prepared and Mac schema/API/admission validated;
+Linux CUDA execution and the full learner runtime are pending.
+
 ## v0.1.0-alpha.2 — October 14, 2026
 
 This is a limited CPU source alpha. Native source fixes were captured in an

@@ -1,0 +1,102 @@
+{
+  "release": "v0.1.0-alpha.3",
+  "date": "2026-10-14",
+  "status": "one independently reviewed real-data Apple MPS smoke completed",
+  "claim_scope": "functional inner-GPT smoke at observed MPS tensor boundaries; not standard accelerator certification or learning improvement",
+  "workload": {
+    "dataset": "TinyStories",
+    "model_role": "inner task GPT",
+    "profile": "smoke",
+    "seed": 43,
+    "parameters": 5063424,
+    "protocol": {
+      "batch": 2,
+      "context": 16,
+      "eval_batches": 2,
+      "max_params": 5100000,
+      "max_tensor_bytes": 64000000,
+      "process_timeout": 90,
+      "profile": "smoke",
+      "steps": 3,
+      "train_seconds_limit": 30,
+      "version": "training-v1.1-fixed-steps",
+      "vocab": 4096
+    },
+    "scheduled_training_calls": 3,
+    "positive_learning_rate_calls": 2,
+    "training_tokens": 96,
+    "graded_development_tokens": 64
+  },
+  "device": {
+    "name": "Apple MPS",
+    "status": "verified",
+    "observed_boundaries": {
+      "parameters": "64 unique float32 parameter tensors observed mps:0",
+      "inputs_targets": "mps:0/int64",
+      "logits": "mps:0/float32 in worker and independent grader",
+      "gradients": "64 mps:0/float32 after each call",
+      "adam_momenta": "mps:0/float32",
+      "initial_state": "65 mps:0 state entries observed before firstcall then storedonCPU",
+      "worker_forwards": 16,
+      "grader_forwards": 8,
+      "unsupported_op_fallback_env": "0"
+    },
+    "limits": [
+      "CPU scalar optimizer step counters are permitted metadata.",
+      "This is an observed-boundary audit, not a per-operator GPU-only trace.",
+      "The public reproduction command does not include the private observation wrappers or full hash instrumentation."
+    ]
+  },
+  "metrics": {
+    "development_loss": 8.111218929290771,
+    "smoke_reward_excluded_from_rl": 0.00030015278509746293,
+    "policy_training_eligible": false,
+    "learning_improvement_measured": false,
+    "changed_state_tensors": 65,
+    "state_update_l2": 1.8102758875278773,
+    "overall_wall_seconds_observation_only": 12.710549667000123
+  },
+  "compatibility": {
+    "rl_framework_mps_rollout": "not tested",
+    "cuda_execution": "not tested",
+    "standard_gpu_budget": "not tested",
+    "coding_agent_rl_update": false,
+    "before_after_learning_gain": false
+  },
+  "hashes": {
+    "source_sha256": {
+      "starter.py": "42b5161c57a4bed3ae7ebf9478e726542fcb7ba7d276f40fe4f9ef2bdce2cdd5",
+      "evaluate.py": "702e94bd21c03f9576f7765965afd4a8323df0045bdd4d72a8f9cab205491069",
+      "worker.py": "f49a74f639a1d5afe11d40d824068926d57108c98e13bf6a43f948e2da5bfb94",
+      "grader.py": "0ead8f7051c8f1c2d82cb7bf3f7080d0d49b6a76c239f9f6d35b418338582d60",
+      "protocol.py": "68df6d00d156f0f71a37715f2751b3b6de410b9d692aca4c7153afc7a1c8df99",
+      "checks.py": "227b5d50d11308a873654c0151ba4d949b2f77fa03660d910b9d62e842b26f74",
+      "data.py": "b1da3937fbacf32521a6d731530bf065b95eff043f787f2d2ef98ac21f29dcfb",
+      "tensor_hashes.py": "ab15c5040365cc762c75ee5c427701dfdfafed124354f6026da56da70c92308a",
+      "process_control.py": "3b82a12b80ae4d271569f5dbfb1806c748cb22fdef904f2e20ac74bd91afd9d0"
+    },
+    "shared_source_sha256": {
+      "records.py": "2034bf21cb07b41ba1332c26c3704fb83e08ef0781b2ea514159fc16c4adea2b",
+      "resources.py": "6406ebd44076feaa18bc6039497479cca113d6b5691c4dd4c4d8b7cb788d3e47"
+    },
+    "data_sha256": {
+      "manifest.json": "c0974243ba9718158ecc7ab2a94d47c670f1812a851cf774ba5ea60ea3470183",
+      "train.npy": "07e9240dd8e1bd232561d6c337363c3ee3ffa75f2ca206c01c0408059ecb0047",
+      "dev.npy": "9a708001cb0a88c6c7dd73bb77466fd7c66ab36e562e0b285874d910463543ea",
+      "final.npy": "379555509c7ab2724b444c572d0c909f6e9baa79e70f189d51f730a11a59b6a8",
+      "tok.json": "f178599056c7e45935f734e554a349a930da1c35c81aa6527527b923eb8345a4"
+    },
+    "weights": {
+      "initial_tensor_sha256": "247de1dabbb7abd3b30505bb9fb912aa17f556281a8f5e6cb61a3e23ff182fa0",
+      "final_tensor_sha256": "a030b15da0303b0ab88f71d91c9012827cefad286f9590d700ca9ed4fd92a837",
+      "initial_file_sha256": "9d503ba0fb6a152408818c3a78b9b12a4380111045b354cd29891252eedcd0d2",
+      "final_file_sha256": "42a11c44ebcd5940b09b185da0697a7eca2b0242acc756bf0e55bfeb9d302720"
+    }
+  },
+  "independent_review": {
+    "source_wrappers_and_original_function_semantics": "independently checked",
+    "source_data_and_weight_identities": "independently rechecked",
+    "native_receipt_and_finite_state": "independently rechecked",
+    "workload_repeated_by_reviewer": false
+  }
+}

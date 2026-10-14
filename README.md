@@ -2,11 +2,13 @@
 
 **Reinforcement-learning environments for LLM agents that improve machine-learning systems.**
 
+**Apple GPU functionally verified:** one real TinyStories inner-GPT smoke completed on Apple MPS with 5,063,424 parameters. The fixed smoke protocol made 3 scheduled training calls (2 with positive learning rate), processed 96 training tokens and graded 64 development tokens. This verifies a bounded inner-model GPU execution path; it does not measure before/after learning gain, standard CUDA execution, or coding-agent RL.
+
 An agent writes code, runs an experiment, reads the result, and tries again. These environments turn that work into measurable feedback and rewards that an external RL trainer can use to improve the agent.
 
-The first release includes **inference optimization, training improvement, kernel optimization, and a shared Verifiers adapter**. Everything can be explored on CPU; the environments also contain Apple Silicon execution paths.
+The suite includes **inference optimization, training improvement, kernel optimization, and a shared Verifiers adapter**. The latest release records real Apple GPU training execution and adds a [NVIDIA training guide](docs/nvidia-training.md) with native CUDA steps and pinned external-trainer example configurations.
 
-> **Limited CPU alpha:** task execution, framework compatibility, and real inner-model updates have been checked. Coding-agent weight training, learned policy improvements, and calibrated accelerator performance remain unverified. Use trusted local research code.
+> The three environments have different accelerator evidence. See [the Apple GPU check](docs/apple-gpu-check.md) for the MPS result and the CUDA scope. Coding-agent weight training, learned policy improvements, and calibrated accelerator performance remain unverified. Use trusted local research code.
 
 ## Why recursive self-improvement?
 
@@ -38,6 +40,8 @@ The kernel catalog includes RMSNorm, softmax, SwiGLU, cross-entropy, causal atte
 In the training-improvement environment, a small GPT is trained **inside each experiment**. Its loss grades the submitted code. The outer LLM coding policy is the model an RL trainer would subsequently update.
 
 ## Start with a small CPU task
+
+CPU remains the quickest way to explore the environments. The current release also records a bounded Apple MPS smoke; this quickstart is a convenience path, not the release headline.
 
 Use Python **3.12** for the complete suite. The kernel package also supports Python 3.11+. Create an environment and install the kernel task:
 
@@ -109,13 +113,14 @@ See [the integration guide](suite/integration/README.md) for loading, asset prep
 
 - Real CPU kernel episodes, including framework test/submit feedback and termination.
 - A small GPT trained on real TinyStories data; saved initial/final weights and independent loss grading were checked. This trains the model inside the task, not the coding agent.
+- One real TinyStories inner-GPT smoke executed on Apple MPS: 3 scheduled calls, 2 positive-learning-rate calls, 96 training tokens and 64 development grading tokens. No before/after learning gain was measured, and no standard CUDA run or coding-agent RL update is claimed. See [the evidence and reproduction limits](docs/apple-gpu-check.md).
 - Source-bound reviews and local package installation checks. Standard timing rewards still require valid calibration.
 
 ## Verification and limitations
 
 [VALIDATION.md](VALIDATION.md) records the release checks. The original CPU checks and later fixes were bound to explicit source snapshots; they do not establish CUDA support, GPU speedups, or learned policy improvement.
 
-Submitted Python executes with local user permissions. The subprocess controls are fault-containment tools, **not a hardened security sandbox**. Use isolated execution before accepting hostile submissions. The inference task's supported runtime is macOS CPU/Apple MPS; CUDA and cross-platform accelerator behavior are not verified by this release.
+Submitted Python executes with local user permissions. The subprocess controls are fault-containment tools, **not a hardened security sandbox**. Use isolated execution before accepting hostile submissions. Accelerator support is environment-specific: inference CUDA is unsupported; training CUDA has not been executed; kernel CUDA execution remains conditional on backend/task support and was not run in this release. See [the scope table](docs/apple-gpu-check.md).
 
 ## Releases and contributions
 

@@ -1,0 +1,34 @@
+output_dir = "/srv/rsi/evidence/env-server"
+
+[env.taskset]
+id = "rsi-coding-suite"
+environments = [
+    "training",
+]
+split = "train"
+seed = 14
+count = 2
+
+[env.agent.runtime]
+type = "subprocess"
+
+[env.agent.harness]
+id = "rsi-coding-suite"
+checkout = "/srv/rsi/source"
+python = "/srv/rsi/scorer-venv/bin/python"
+data_dir = "/srv/rsi/data"
+output_dir = "/srv/rsi/evidence/train"
+device = "cuda"
+profile = "standard"
+compatibility_only = false
+calibration = "/srv/rsi/calibration/cuda-standard.json"
+horizon = 1
+max_output_tokens = 2048
+
+[serve]
+address = "tcp://0.0.0.0:5557"
+max_concurrent = 1
+
+[serve.pool]
+type = "static"
+num_workers = 1
