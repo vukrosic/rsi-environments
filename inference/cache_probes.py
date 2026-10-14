@@ -3,6 +3,9 @@ import torch
 
 VERSION = 1
 
+class ContractViolation(ValueError):
+    """An evaluator-owned output-shape or input-mutation check failed."""
+
 def inputs(nonce,vocab_size):
     generator=torch.Generator().manual_seed(int(nonce[-15:],16))
     def draw(shape):
@@ -17,7 +20,7 @@ def run(engine,probes,device,oracle=None):
     def record(key,logits):
         actual=logits.detach().float().cpu().clone()
         if actual.ndim != 2 or actual.shape[0] != context.shape[0] or not torch.isfinite(actual).all():
-            raise ValueError(f'cache probe {key}: shape/nonfinite output')
+            raise ContractViolation(f'cache probe {key}: shape/nonfinite output')
         if oracle is not None:
             expected=oracle(context).detach().float().cpu()
             torch.testing.assert_close(actual,expected,atol=.002,rtol=.002)
@@ -31,7 +34,7 @@ def run(engine,probes,device,oracle=None):
         context=before
         record(key,engine.prefill(value))
         if not torch.equal(before,value):
-            raise ValueError(f'cache probe {key}: prompt mutation')
+            raise ContractViolation(f'cache probe {key}: prompt mutation')
     def decode(key,token):
         nonlocal context
         value=token.to(device).clone()
@@ -39,7 +42,7 @@ def run(engine,probes,device,oracle=None):
         context=torch.cat([context,before],dim=1)
         record(key,engine.decode(value))
         if not torch.equal(before,value):
-            raise ValueError(f'cache probe {key}: token mutation')
+            raise ContractViolation(f'cache probe {key}: token mutation')
     a,b=probes['a'],probes['b']
     branches=probes['branches']
     prefill('request-a',a)

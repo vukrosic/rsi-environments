@@ -52,3 +52,41 @@ Introduced editable 5,063,424-parameter GPT starter, independent train/grade
 workers, dev/final data preparation, normalized suite records, compute limits,
 calibration gate and persistent code-action episodes. 21 initial CPU tests passed,
 with synthetic and real smoke examples. Historical experiments were preserved.
+
+## Report-only exact passage diagnostic — October 14, 2026
+
+Added a bounded tokenizer/EOT-aware 64-token/stride32 passage scan following
+independent snapshot05 review. Equality verification prevents digest collisions
+from becoming overlap claims. Seven fixture tests pass. A sampled real-data audit
+processed 722,693 windows with no exact cross-split matches, unchanged assets,
+and explicit sampling/paraphrase/source-origin limits. No reward or dataset
+protocol changes; exact-story disjointness is not advertised as zero content
+overlap. Evidence: checkpoints/2026-10-14-passages/.
+
+## Operational bounds revision — October 14, 2026
+
+Bounded session lock waits and added normalized infrastructure-busy receipts,
+with existing task config compatibility and live-owner state preservation. Three
+new lock tests and linked persistence/archive checks pass. Reproduction commands
+now carry a cumulative work deadline and observed-process cleanup; a timed-out
+root and separate-session child were cleaned while an unrelated fixture survived.
+Three process tests pass after fixing near-deadline process-discovery attribution;
+two new archive/deadline tests pass. Current packaged source completed CPU
+reproduction in the existing isolated same-Mac venv. No compute-budget/reward or
+training-data change; no standard GPU or outer-policy-learning claim.
+
+## Versioned training diagnostic — October 14, 2026
+
+Added optional CPU-only20-update/5,120-token diagnostic and independent paired
+initial/final grading with canonical tensor hashes, changed-tensor counts and
+update magnitude. Normalized smoke profile and explicit policy-exclusion markers
+preserve standard reward rules. Existing standard and tiny smoke workloads
+remain unchanged. Actual real TinyStories inner-GPT execution is recorded at
+`checkpoints/2026-10-14-cpu-training-v1/`; no outer-policy training claim.
+Source-package completeness now requires the tensor hashing and process control
+modules imported by the runtime.
+
+Snapshot10 TRN-10-N1 diagnostic overflow is fixed with scaled norms and explicit
+null when the true norm exceeds float64; three extreme-value regressions pass.
+Five package completeness/limit tests pass. Evaluator tests also cover actual
+20-call execution, hash mismatch invalidation and early device/profile guards.

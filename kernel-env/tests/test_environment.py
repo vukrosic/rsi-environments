@@ -286,7 +286,11 @@ def test_invalid_final_candidate_terminates_with_zero_reward(tmp_path: Path) -> 
     assert "speedup" not in transition["info"]["metrics"]
 
 
-def test_unavailable_cuda_truncates_with_null_reward(tmp_path: Path) -> None:
+def test_unavailable_cuda_truncates_with_null_reward(tmp_path: Path, monkeypatch) -> None:
+    # This is a device-unavailability routing test, including on CUDA hosts;
+    # it must never launch an accelerator workload as part of CPU smoke QA.
+    import kernel_env.environment as environment_module
+    monkeypatch.setattr(environment_module.torch.cuda, "is_available", lambda: False)
     env = KernelEnvironment(
         "softmax", workspace=tmp_path / "workspace", device="cuda", profile="smoke"
     )

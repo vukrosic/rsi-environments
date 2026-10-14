@@ -18,6 +18,7 @@ ROOT_FILES = (
     "LICENSE",
     "pyproject.toml",
     "task_catalog.json",
+    "STANDARD-PLAN.md",
 )
 EXCLUDED_PARTS = {
     "__pycache__",

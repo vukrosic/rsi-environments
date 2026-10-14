@@ -8,11 +8,11 @@ coding agent being trained. Prompt comparisons or lessons are not policy trainin
 
 The suite coordinator owns the version-pinned framework adapter/training example.
 This folder supplies its environment API and real-execution tests, and does not
-duplicate a trainer framework. Import `CodingAgentEnvironment` from
-`rl_environment.py` after putting this directory on Python's import path.
+duplicate a trainer framework. Import `CodingAgentEnvironment` from the public
+`inference_env` package in both the source checkout and installed wheel.
 
 ```python
-from rl_environment import CodingAgentEnvironment
+from inference_env import CodingAgentEnvironment
 env = CodingAgentEnvironment('episodes/agent-policy', device='cpu', max_steps=3)
 observation = env.reset(split='train', seed=14)
 # An external policy/model supplies the complete Python source below.
@@ -29,6 +29,9 @@ feedback. It creates a distinct trainer-owned episode directory. `seed` labels t
 policy episode; fresh scorer inputs use a recorded independent nonce. Thus the
 same reset seed does not replay final prompts. Exact reproduction uses the stored
 inputs/source artifacts rather than requesting another fresh score.
+`contract_documents` embeds UTF-8 content and SHA256 for TASK.md, DESIGN.md and
+RL-CONTRACT.md. The installed wheel also ships these exact runtime resources, so
+the observation's measurement and isolation rules can be resolved without a checkout.
 
 `step(action)` accepts `{type:'submit', code:<complete Engine source>, finish?:bool}`.
 It saves the source and runs the independent scorer. Intermediate actions expose
@@ -68,9 +71,10 @@ an excluded infrastructure sample. Do not replace null with 0. Evaluation episod
 must be isolated from training updates. CPU/MPS measurements cannot be mixed.
 
 Use the shared accelerator lease already inside scoring, and give trainer/tool
-timeouts above the intended 600-second scorer budget. Synchronous preflight is
-currently best effort; the external tool supervisor must impose its own deadline.
+timeouts above the 600-second controller budget to allow result delivery and cleanup.
+The parent supervisor bounds preflight, loading, snapshots and grading as well as
+workers; host filesystem failures in the outer API still require an external supervisor.
 Trusted local source only;
 hostile code needs the external sandbox described in `DESIGN.md`. An adapter
 compatibility test is distinct from actual agent-weight training and from a
-demonstrated learning gain. See `RESULTS.md` for exactly which were verified here.
+demonstrated learning gain. See [root release validation](../VALIDATION.md) for exactly which were verified here.

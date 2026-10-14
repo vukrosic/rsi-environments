@@ -11,7 +11,7 @@ generated-source actions, native feedback, and terminal receipts for all three
 CPU environments. The compatibility provider copies starter code. **No outer
 coding-policy weights were trained and no learned improvement was demonstrated.**
 Standard accelerator reward calibration remains a separate checkpoint.
-See [release validation](../../VALIDATION.md) for the published source checks.
+See [release validation](../../VALIDATION.md) for tag-specific source checks and their limitations.
 
 ## Install without changing global packages
 

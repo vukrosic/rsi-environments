@@ -166,3 +166,55 @@ reward. Before/after receipts are in the validation-cache checkpoint. The earlie
 no-cache statement describes the prior semantic-v1 checkpoint. Causality and
 held-out-loss scoring still run for every candidate; this caches data semantics
 only. The candidate compute protocol remains v1.1.
+
+For optional report-only content checks, run `python audit_passage_overlap.py
+--data data --window 64 --stride 32 --output runs/passages.json`. The default
+predeclared budget is one million sampled windows and a best-effort 45-second
+wall timer. Reported matches are confirmed token equality; reports contain only
+counts/offsets. This is not a reward gate or a near-duplicate detector.
+
+## Operational lock and reproduction bounds — October 14, 2026
+
+Session lock acquisition now defaults to a finite two-second wait; the optional
+`lock_timeout_seconds` accepts 0–60 seconds and is not persisted as task config.
+Constructor/reset raise SessionBusy when unavailable. A busy step/final returns a
+durable blocked/null/truncated receipt and does not reserve trials or seal/change
+the active owner's session. This truncates the request, unlike a scoring-process
+infrastructure failure that seals its own episode. The shared eligibility gate
+excludes busy receipts. Compute budgets and scoring protocol remain unchanged.
+
+Standalone reproduction now has a cumulative command-work deadline (180 seconds
+default, --timeout up to 3600). Commands run under process supervision using
+observed ancestry and process-group birth identities; output capture is sampled
+and capped, and owned observed descendants are cleaned on exit/failure/timeout.
+Inspection/reaping can add overhead. A child detached before it is observed may
+not be safely attributable; this is cooperative cleanup, not hostile isolation.
+The package inspection permits at most 512 members, 64 MB total and 2 MB per
+source file. These are source-package limits, not a generic archive sandbox.
+Synchronous archive/hash work is size-bounded but not interrupted by the command
+supervisor; the cumulative work timer is checked before subsequent subprocesses.
+
+## Versioned CPU training diagnostic — October 14, 2026
+
+`evaluate.py --profile smoke --diagnostic cpu-training-v1 --device cpu` runs
+20 evaluator-owned updates at batch 4/context 64 (5,120 training tokens) and
+four grading batches (1,024 tokens). Its loop cap is 90 seconds and each child
+watchdog is 150 seconds. The starter receives its unchanged `step / steps`
+fraction schedule. This diagnostic is version `training-diagnostic-cpu-v1`;
+standard 500-step and ordinary three-step smoke protocols stay unchanged.
+
+It preserves initial/final weights and canonical tensor hashes, then independently
+computes paired losses on the same requested dev or final batches. Candidate
+reported loss is ignored. The normalized record remains profile smoke with
+explicit outer-policy exclusion. Do not consume its measured reward in policy
+updates, use final feedback to select a candidate, or treat one paired sample
+as evidence of generalization. Saved weights and real assets stay local.
+
+```bash
+python evaluate.py --candidate starter.py --data data --output runs/cpu-diagnostic \
+  --profile smoke --diagnostic cpu-training-v1 --device cpu --split dev --seed 17
+```
+
+The diagnostic guard rejects standard-profile and accelerator requests before
+execution. Direct evaluator use only; the standard trainer interaction does not
+expose this diagnostic budget.

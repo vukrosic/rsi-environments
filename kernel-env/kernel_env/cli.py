@@ -7,6 +7,7 @@ import sys
 
 from .environment import STARTERS, evaluate, calibrate
 from .tasks import NAMES
+from .difficulty import TRAIN_TASKS
 
 
 def main():
@@ -26,6 +27,10 @@ def main():
     cal = sub.add_parser("calibrate", help="Record fixed idle baselines; blocks under recognized load")
     cal.add_argument("task", choices=NAMES)
     cal.add_argument("--seed", type=int, default=2301)
+    index = sub.add_parser("index-calibrations", help="Route one calibration path to existing task/family receipts; no measurements")
+    index.add_argument("task", choices=TRAIN_TASKS)
+    index.add_argument("--receipt", action="append", required=True, metavar="FAMILY=PATH")
+    index.add_argument("--output", type=Path, required=True)
     for command in (score, cal):
         command.add_argument("--difficulty-id", help="Explicit training-only difficulty id; omit for the legacy workload")
         command.add_argument("--device", choices=("cpu", "mps", "cuda"), default="cpu")
@@ -40,6 +45,17 @@ def main():
         with path.open("x") as target:
             target.write((STARTERS / f'{args["task"]}.py').read_text())
         print(json.dumps({"task": args["task"], "candidate": str(path.resolve())}))
+        return
+    if command == "index-calibrations":
+        from .calibration_routes import write_index
+        receipts = {}
+        for entry in args["receipt"]:
+            family, separator, path = entry.partition("=")
+            if not separator or not family or not path or family in receipts:
+                parser.error("--receipt needs unique FAMILY=PATH entries")
+            receipts[family] = path
+        path = write_index(args["output"], args["task"], receipts)
+        print(json.dumps({"calibration_index": str(path), "measurements_created": False}))
         return
     result = evaluate(**args) if command == "evaluate" else calibrate(**args)
     print(json.dumps(result, indent=2, allow_nan=False))

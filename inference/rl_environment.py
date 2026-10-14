@@ -26,6 +26,10 @@ class CodingAgentEnvironment:
         self._mutex = threading.Lock()
 
     def reset(self, *, split='train', seed=0):
+        with self._mutex:
+            return self._reset(split=split,seed=seed)
+
+    def _reset(self, *, split='train', seed=0):
         if split not in ('train','heldout'):
             raise ValueError('split must be train or heldout')
         if not isinstance(seed, int) or isinstance(seed, bool):
@@ -50,13 +54,23 @@ class CodingAgentEnvironment:
         (self.episode / 'rl-state.json').write_text(json.dumps(state, indent=2)+'\n')
 
     def _observation(self, feedback=None):
+        documents = {}
+        for name in ('TASK.md', 'DESIGN.md', 'RL-CONTRACT.md'):
+            content = (HERE / name).read_bytes()
+            documents[name] = {'content': content.decode('utf-8'),
+                'sha256': hashlib.sha256(content).hexdigest()}
         return {'task_id': self.spec['task_id'], 'split': self.split,
+            'evaluation_contract':'rsi.inference.smollm2-135m.v2', 'profile':'standard',
             'objective': 'Make fixed pretrained SmolLM2-135M prompt processing and token generation faster while preserving logits and greedy tokens.',
             'starter_code': self.code, 'steps_remaining': self.horizon-self.used,
+            'contract_documents': documents,
             'model': json.loads((HERE/'model.json').read_text()),
             'action_schema': {'type': 'submit', 'code': 'complete self-contained Engine Python source', 'finish': 'optional boolean'},
             'constraints': {'atol': 0.002, 'rtol': 0.002, 'exact_greedy_tokens': True,
                 'prompt_lengths': self.spec['lengths'], 'max_source_bytes': 65536,
+                'timing_batch_size':1, 'required_cache_probe_batch_sizes':[1,2],
+                'input_shape':'[batch, length]', 'decode_input_shape':'[batch, 1]',
+                'output_shape':'[batch, vocab_size]',
                 'worker_wall_seconds': 180, 'sampled_rss_bytes': 6_000_000_000,
                 'permitted_methods': 'Any method satisfying correctness, resource and measurement contracts in TASK.md.'},
             'feedback': feedback}

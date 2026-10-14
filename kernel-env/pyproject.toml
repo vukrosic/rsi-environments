@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rsi-kernel-env"
-version = "0.1.1"
+version = "0.1.4"
 description = "Six correctness-gated kernel optimization tasks for research agents"
 readme = "README.md"
 requires-python = ">=3.11"

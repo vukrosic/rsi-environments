@@ -43,19 +43,25 @@ def device_available(device):
     return device == 'cpu' or (device == 'mps' and torch.backends.mps.is_available()) or (device.startswith('cuda') and torch.cuda.is_available())
 
 
-def evaluate(candidate, data_dir, output_dir, profile='smoke', split='dev', device='cpu', seed=0, calibration=None):
-    p = get_protocol(profile)
+def evaluate(candidate, data_dir, output_dir, profile='smoke', split='dev', device='cpu', seed=0, calibration=None, diagnostic=None):
+    p = get_protocol(profile, diagnostic=diagnostic)
+    if diagnostic is not None and device != 'cpu':
+        raise ValueError('diagnostic training is CPU-only; standard accelerator rules are unchanged')
     if split not in {'dev', 'final'}:
         raise ValueError('split must be dev or final')
     out = Path(output_dir).resolve()
     out.mkdir(parents=True, exist_ok=False)  # immutable receipts; never overwrite a previous run
     metrics = {'protocol': p.record(), 'split': split}
+    if diagnostic:
+        metrics.update({'diagnostic': diagnostic, 'policy_trainable': False})
     provenance = {'device': device, 'seed': seed, 'python': sys.version.split()[0],
                   'torch': torch.__version__, 'numpy': np.__version__,
                   'hardware': platform.platform(), 'machine': platform.machine(),
                   'evaluator_sha256': {name: file_sha256(HERE / name) for name in
-                      ('evaluate.py', 'worker.py', 'grader.py', 'protocol.py', 'checks.py', 'data.py')},
+                      ('evaluate.py', 'worker.py', 'grader.py', 'protocol.py', 'checks.py', 'data.py', 'tensor_hashes.py')},
                   'suite_sha256': {name: file_sha256(HERE.parent / 'suite' / name) for name in ('records.py', 'resources.py')}}
+    if diagnostic:
+        provenance['outer_policy_trainable'] = False
     status, reward = 'error', None
     try:
         source = Path(candidate).resolve()
@@ -63,7 +69,13 @@ def evaluate(candidate, data_dir, output_dir, profile='smoke', split='dev', devi
         snapshot.write_bytes(source.read_bytes())
         provenance['source_sha256'] = file_sha256(snapshot)
         try:
-            _, _, _, manifest = load_data(data_dir, profile)
+            train_data, dev_data, final_data, manifest = load_data(data_dir, profile)
+            score_minimum = p.eval_batches * p.batch * (p.context + 1)
+            for name, array, required in [('train', train_data, p.context + 1),
+                                          ('dev', dev_data, score_minimum),
+                                          ('final', final_data, score_minimum)]:
+                if len(array) < required:
+                    raise ValueError(f'{name} requires at least {required} tokens for this protocol')
         except ValueError as exc:
             raise RuntimeError(f'data assets invalid or missing: {exc}') from exc
         provenance['data_manifest'] = manifest
@@ -83,6 +95,10 @@ def evaluate(candidate, data_dir, output_dir, profile='smoke', split='dev', devi
                 from calibrate import verify_calibration
                 provenance['calibration'] = verify_calibration(calibration, device)
             common = ['--candidate', str(snapshot), '--profile', profile, '--device', device, '--seed', str(seed)]
+            if diagnostic:
+                common += ['--diagnostic', diagnostic]
+                provenance['diagnostic'] = diagnostic
+                provenance['outer_policy_trainable'] = False
             checkpoint = out / 'weights.pt'
             training = child('worker.py', [*common, '--train', str(Path(data_dir).resolve() / 'train.npy'),
                              '--checkpoint', str(checkpoint), '--result', str(out / 'train-result.json')], out, p.process_timeout)
@@ -94,11 +110,18 @@ def evaluate(candidate, data_dir, output_dir, profile='smoke', split='dev', devi
                     metrics['reason'] = 'checkpoint exceeds 100 MB'
                 else:
                     provenance['checkpoint_sha256'] = file_sha256(checkpoint)
-                    grading = child('grader.py', [*common, '--checkpoint', str(checkpoint),
+                    reference_args = ['--reference-checkpoint', str(out / 'initial-weights.pt')] if diagnostic else []
+                    if diagnostic:
+                        provenance['initial_checkpoint_sha256'] = file_sha256(out / 'initial-weights.pt')
+                    grading = child('grader.py', [*common, *reference_args, '--checkpoint', str(checkpoint),
                         '--heldout', str(Path(data_dir).resolve() / f'{split}.npy'),
                         '--result', str(out / 'eval-result.json')], out, p.process_timeout)
                     status = grading['status']
                     metrics.update(grading)
+                    if diagnostic and status == 'ok':
+                        if grading['loaded_final_tensor_sha256'] != training['final_tensor_sha256'] or grading['reference_tensor_sha256'] != training['initial_tensor_sha256']:
+                            status = 'invalid'
+                            metrics['reason'] = 'independent grader tensor hashes disagree with trained checkpoint'
             try:
                 _, _, _, verified = load_data(data_dir, profile)
                 if file_sha256(Path(data_dir) / 'manifest.json') != provenance['data_manifest_sha256']:
@@ -138,8 +161,9 @@ def main():
     ap.add_argument('--device', choices=('cpu', 'mps', 'cuda'), default='cpu')
     ap.add_argument('--seed', type=int, default=0)
     ap.add_argument('--calibration')
+    ap.add_argument('--diagnostic', choices=('cpu-training-v1',))
     args = ap.parse_args()
-    record = evaluate(args.candidate, args.data, args.output, args.profile, args.split, args.device, args.seed, args.calibration)
+    record = evaluate(args.candidate, args.data, args.output, args.profile, args.split, args.device, args.seed, args.calibration, args.diagnostic)
     print(json.dumps(record, allow_nan=False))
     return 0 if record['status'] == 'ok' else 1
 

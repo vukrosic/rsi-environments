@@ -13,18 +13,19 @@ class PackageLayoutTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="rsi-package-test-") as temporary:
             wheel_dir = Path(temporary)
             name = package_build.build_wheel(wheel_dir)
-            self.assertEqual(name, "vuk_rsi_inference-0.2.0-py3-none-any.whl")
+            self.assertEqual(name, f"vuk_rsi_inference-{package_build.VERSION}-py3-none-any.whl")
             with ZipFile(wheel_dir / name) as wheel:
                 names = set(wheel.namelist())
                 for module in (item for item in names if item.startswith("inference_env/") and item.endswith(".py")):
                     compile(wheel.read(module), module, "exec")
             self.assertIn("inference_env/__init__.py", names)
             self.assertIn("inference_env/_runtime/scorer.py", names)
+            self.assertIn("inference_env/_runtime/attempt.py", names)
             self.assertIn("inference_env/_runtime/controller.py", names)
             self.assertIn("inference_env/_runtime/supervisor.py", names)
             self.assertIn("inference_env/_runtime/cache_probes.py", names)
             self.assertIn("inference_env/_runtime/shared/records.py", names)
-            self.assertIn("vuk_rsi_inference-0.2.0.dist-info/METADATA", names)
+            self.assertIn(f"vuk_rsi_inference-{package_build.VERSION}.dist-info/METADATA", names)
             self.assertFalse(any(name.startswith("scorer.py") for name in names))
             forbidden = ("episodes/", "evidence/", ".venv/", "assets/", ".cache/")
             self.assertFalse(any(any(part in name for part in forbidden) for name in names))

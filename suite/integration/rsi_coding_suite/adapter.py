@@ -14,6 +14,7 @@ import verifiers.v1 as vf
 
 from .protocol import eligibility, parse_action, policy_view, record_of
 from .evidence import hashes, snapshot
+from .ownership import OwnedProcesses, finish_cleanup
 
 CHECKOUT = Path(__file__).resolve().parents[3]
 
@@ -77,20 +78,24 @@ class CodingHarnessConfig(vf.HarnessConfig):
 
 
 class Bridge:
-    def __init__(self, process, folder, log):
+    def __init__(self, process, folder, log, owned=None):
         self.process, self.folder, self.log = process, folder, log
+        self.owned = owned
+        self._close_task = None
 
     @classmethod
     async def start(cls, config, data):
         folder = Path(config.output_dir).resolve() / uuid.uuid4().hex
         folder.mkdir(parents=True, exist_ok=False)
         source_manifest = snapshot(config.checkout, folder / 'source')
+        owned = OwnedProcesses(folder)
         log = (folder / 'worker.stderr').open('wb')
         process = await asyncio.create_subprocess_exec(config.python, '-u',
             str(Path(__file__).with_name('worker.py')), stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE, stderr=log, start_new_session=True,
-            limit=16 * 1024 * 1024)
-        bridge = cls(process, folder, log)
+            limit=16 * 1024 * 1024, env=owned.environment())
+        owned.register(process.pid)
+        bridge = cls(process, folder, log, owned)
         bridge.source_manifest = source_manifest
         initial = dict(checkout=config.checkout, workspace=str(folder / 'native'),
             environment=data.environment, split=data.split, seed=data.seed,
@@ -106,23 +111,33 @@ class Bridge:
             raise
 
     async def exchange(self, value, timeout):
-        self.process.stdin.write((json.dumps(value) + '\n').encode())
-        await self.process.stdin.drain()
-        line = await asyncio.wait_for(self.process.stdout.readline(), timeout)
+        async with asyncio.timeout(timeout):
+            self.process.stdin.write((json.dumps(value) + '\n').encode())
+            await self.process.stdin.drain()
+            line = await self.process.stdout.readline()
         if not line:
             raise RuntimeError(f'environment process exited; inspect {self.folder}/worker.stderr')
         return json.loads(line)
 
     async def close(self):
-        if self.process.returncode is None:
-            try: os.killpg(self.process.pid, signal.SIGTERM)
-            except ProcessLookupError: pass
-            try: await asyncio.wait_for(self.process.wait(), 3)
-            except TimeoutError:
-                try: os.killpg(self.process.pid, signal.SIGKILL)
+        if self._close_task is None:
+            self._close_task = asyncio.create_task(self._close())
+        return await finish_cleanup(self._close_task)
+
+    async def _close(self):
+        try:
+            if self.owned is not None:
+                await self.owned.cleanup()
+            elif self.process.returncode is None:
+                try: os.killpg(self.process.pid, signal.SIGTERM)
                 except ProcessLookupError: pass
-                await self.process.wait()
-        self.log.close()
+                try: await asyncio.wait_for(self.process.wait(), 3)
+                except TimeoutError:
+                    try: os.killpg(self.process.pid, signal.SIGKILL)
+                    except ProcessLookupError: pass
+            await asyncio.wait_for(self.process.wait(), 3)
+        finally:
+            if self.log is not None:self.log.close()
 
 
 class CodingHarness(vf.Harness[CodingHarnessConfig]):
@@ -136,6 +151,7 @@ class CodingHarness(vf.Harness[CodingHarnessConfig]):
         messages = [{'role': 'system', 'content': 'Return only the required JSON code action.'},
                     {'role': 'user', 'content': data.prompt_text}]
         transition = None
+        policy_response_ids = []
         try:
             async with AsyncOpenAI(base_url=endpoint, api_key=secret, max_retries=0,
                                    timeout=self.config.policy_timeout_seconds) as client:
@@ -143,6 +159,7 @@ class CodingHarness(vf.Harness[CodingHarnessConfig]):
                     messages.append({'role': 'user', 'content': json.dumps(policy_view(observation))})
                     response = await client.chat.completions.create(model=ctx.model,
                         messages=messages, max_tokens=self.config.max_output_tokens)
+                    policy_response_ids.append(getattr(response, 'id', None))
                     text = response.choices[0].message.content or ''
                     messages.append({'role': 'assistant', 'content': text})
                     (bridge.folder / f'policy-{turn:02d}.txt').write_text(text)
@@ -174,6 +191,7 @@ class CodingHarness(vf.Harness[CodingHarnessConfig]):
             result = dict(episode_dir=str(bridge.folder), eligible=eligible, exclusion_reasons=reasons,
                 terminal_reward=transition['reward'], terminated=transition['terminated'],
                 truncated=transition['truncated'], record=record_of(transition),
+                policy_response_ids=policy_response_ids,
                 policy_turns=turn + 1, compatibility_only=self.config.compatibility_only)
             trace.info['rsi'] = result
             trace.agent.trainable = eligible

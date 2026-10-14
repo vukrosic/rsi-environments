@@ -366,12 +366,21 @@ def _record(task, profile, status, reward, metrics, provenance):
     return dict(record, **metadata)
 
 
-def _calibration_receipt(path, task, device, descriptor, integrity):
+def _calibration_receipt(path, task, device, descriptor, integrity, *, details=None, evidence_dir=None):
     """Reject malformed/nonfinite calibration rather than bypassing drift gates."""
     try:
-        def constant(value):
-            raise ValueError(f"nonfinite JSON constant {value}")
-        receipt = json.loads(Path(path).read_text(), parse_constant=constant)
+        from .calibration_routes import load
+        loaded = load(path, task, descriptor["id"] if descriptor else "legacy")
+        receipt = loaded["receipt"]
+        if details is not None:
+            details.update({key: loaded[key] for key in ("path", "sha256", "index_path", "index_sha256")
+                            if key in loaded and loaded[key] is not None})
+        if evidence_dir is not None:
+            for name, data in loaded["snapshots"].items():
+                target = Path(evidence_dir) / name
+                with target.open("xb") as snapshot:
+                    snapshot.write(data)
+                target.chmod(0o444)
         if not isinstance(receipt, dict) or receipt.get("status") != "ok":
             raise ValueError("calibration must be a successful receipt")
         if receipt.get("system") != _system(device):
@@ -390,7 +399,7 @@ def _calibration_receipt(path, task, device, descriptor, integrity):
                for x in times.values()):
             raise ValueError("calibration latencies must be finite positive numbers")
         return receipt
-    except (OSError, ValueError, TypeError) as exc:
+    except (OSError, ValueError, TypeError, OverflowError) as exc:
         raise Blocked(f"invalid calibration receipt: {exc}") from exc
 
 
@@ -471,9 +480,9 @@ def evaluate(solution, task, *, device="cpu", profile="smoke", phase="dev", seed
                 raise Blocked(reason)
             if calibration is None:
                 raise Blocked("standard timing requires a fixed idle calibration receipt")
-            receipt_path = Path(calibration)
-            receipt = _calibration_receipt(receipt_path, task, device, descriptor, integrity)
-            metrics["calibration"] = {"path": str(receipt_path.resolve()), "sha256": _hash(receipt_path)}
+            metrics["calibration"] = {"requested_path": str(Path(calibration).resolve())}
+            receipt = _calibration_receipt(calibration, task, device, descriptor, integrity,
+                                           details=metrics["calibration"], evidence_dir=folder)
             for row in rows:
                 idle = receipt["baseline_ms_by_variant"][str(row["variant"])]
                 drift = max(row["baseline_before_ms"], row["baseline_after_ms"]) / idle
@@ -599,8 +608,14 @@ class KernelEnvironment:
         return self._observation()
 
     def _observation(self, feedback=None):
+        spec = tasks.describe(self.task, self.config["profile"])
+        if self.difficulty is not None:
+            spec["inputs"] = [dict(item, shape=list(item["shape"])) for item in self.difficulty["inputs"]]
+            if self.task != "cross_entropy":
+                spec["output"] = dict(spec["output"], shape=list(self.difficulty["shapes"][0]))
+            spec["shape_note"] = "Nominal shapes for the selected difficulty family. Scored variants change dimensions; derive them from inputs."
         return {"task": self.task, "split": self.split,
-                "task_spec": tasks.describe(self.task, self.config["profile"]),
+                "task_spec": spec,
                 "seed": self.active_seed, "episode_index": self.episode_index,
                 "difficulty": self.difficulty or {"id": "legacy", "sampling": "frozen_eval"},
                 "candidate": str(self.candidate.resolve()), "code": self.candidate.read_text(),
@@ -655,7 +670,7 @@ class KernelEnvironment:
                 if not isinstance(code, str) or not code.strip() or len(code.encode()) > 2 * 1024 * 1024:
                     raise ValueError("code must be nonempty UTF-8 source at most 2 MiB")
         except (ValueError, TypeError, UnicodeError) as exc:
-            terminal = self.steps >= self.max_steps
+            terminal = self.steps >= self.max_steps or (isinstance(action, dict) and action.get("type") == "submit")
             self.done = terminal
             record = self._failure_record("invalid", 0.0, str(exc), stage="policy_schema", terminal=terminal)
             return self._transition(record, reward=0.0, terminated=terminal, truncated=False)

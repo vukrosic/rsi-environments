@@ -6,7 +6,7 @@ An agent writes code, runs an experiment, reads the result, and tries again. The
 
 The first release includes **inference optimization, training improvement, kernel optimization, and a shared Verifiers adapter**. Everything can be explored on CPU; the environments also contain Apple Silicon execution paths.
 
-> **v0.1.0-alpha.1:** environment and framework compatibility have been checked with CPU workloads. Coding-agent weight training, learned improvements, and calibrated accelerator performance have not been demonstrated. The alpha is intended for trusted local research code.
+> **Limited CPU alpha:** task execution, framework compatibility, and real inner-model updates have been checked. Coding-agent weight training, learned policy improvements, and calibrated accelerator performance remain unverified. Use trusted local research code.
 
 ## Why recursive self-improvement?
 
@@ -84,7 +84,7 @@ Each environment provides task state, code actions, experiment feedback, an epis
 
 The adapter is pinned to **Prime Intellect Verifiers 0.4.0** and uses its typed taskset, harness, and environment loader. Recorded CPU compatibility checks exercised actual framework interception, code submissions, feedback, and terminal results across all three environments.
 
-The compatibility policy returns starter code. It is not a trained coding model. The alpha includes a local compatibility runner and configuration for an existing local policy server; it does not include the unreviewed optimizer example.
+The compatibility policy returns starter code. It is not a trained coding model. The alpha includes a local compatibility runner and configuration for an existing local policy server. A coding-policy optimizer and model-training recipe remain a separate research milestone.
 
 ```bash
 # From the repository root, after installing the native task dependencies:
@@ -105,6 +105,12 @@ See [the integration guide](suite/integration/README.md) for loading, asset prep
 - Source snapshots, hashes, seeds, raw metrics, and eligibility reasons make results inspectable.
 - A cooperative accelerator lock serializes participating workers; calibration still has to account for other applications.
 
+## What has actually run
+
+- Real CPU kernel episodes, including framework test/submit feedback and termination.
+- A small GPT trained on real TinyStories data; saved initial/final weights and independent loss grading were checked. This trains the model inside the task, not the coding agent.
+- Source-bound reviews and local package installation checks. Standard timing rewards still require valid calibration.
+
 ## Verification and limitations
 
 [VALIDATION.md](VALIDATION.md) records the release checks. The original CPU checks and later fixes were bound to explicit source snapshots; they do not establish CUDA support, GPU speedups, or learned policy improvement.
@@ -116,3 +122,4 @@ Submitted Python executes with local user permissions. The subprocess controls a
 See [CONTRIBUTING.md](CONTRIBUTING.md), [CHANGELOG.md](CHANGELOG.md), and [GitHub releases](https://github.com/vukrosic/rsi-environments/releases). Useful contributions include reproducible defects, task variants, framework integrations, correctness probes, and measured optimization attempts. Include hardware, dependency versions, seeds, workload, source hashes, and the distinction between smoke and standard measurements.
 
 Created by **Vuk Rosić**. MIT licensed. Downloaded models and datasets retain their own licenses.
+

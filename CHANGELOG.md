@@ -1,5 +1,15 @@
 # Change log
 
+## v0.1.0-alpha.2 — October 14, 2026
+
+- Make the inference task rules/probe contract available in installed packages; tighten cache probes, infrastructure error attribution and lazy CPU thread limits.
+- Add a versioned real-data CPU training diagnostic, split/content integrity checks and cooperative execution bounds. Saved inner-GPT updates and paired losses were checked separately from coding-policy training.
+- Route kernel calibration by difficulty and retain portable package helpers and licenses. Unreliable standard timing remains excluded.
+- Repair adapter cancellation cleanup and include its detached-Python ownership hook in the public source.
+- Restore the shared source dependency used by standalone training, and separate historical alpha1 evidence from new export checks.
+
+This remains a limited CPU alpha. The public adapter ships compatibility execution, not the experimental coding-policy optimizer. No standard accelerator reward, coding-policy update or held-out learning gain is claimed.
+
 ## v0.1.0-alpha.1 — October 14, 2026
 
 First public alpha of the environment and reward layer for LLM self-improvement research.

@@ -27,10 +27,13 @@ def main():
                   checkpoint / 'real-dev-smoke' / 'record.json',
                   checkpoint / 'real-dev-smoke' / 'candidate.py'])
     # Public continuous-improvement receipts only; exclude venvs, generated traces and logs.
-    for name in ('2026-10-14-validation-cache', '2026-10-14-continuous'):
+    for name in ('2026-10-14-validation-cache', '2026-10-14-continuous', '2026-10-14-passages', '2026-10-14-bounds'):
         public_checkpoint = HERE / 'checkpoints' / name
         files.extend(public_checkpoint.glob('*.md'))
         files.extend(public_checkpoint.glob('*.json'))
+    diagnostic = HERE / 'checkpoints/2026-10-14-cpu-training-v1'
+    files.extend(diagnostic / name for name in ('STATUS.md', 'summary.json', 'tensor-fix-review.md',
+                   'execution-source-hashes.json', 'current-source-hashes.json', 'review-disposition.json'))
     for name in ('framework-frozen-train', 'framework-frozen-heldout', 'framework-frozen-null'):
         files.append(HERE / 'checkpoints/2026-10-14-continuous' / name / 'receipt.json')
     files.append(HERE / 'checkpoints/2026-10-14-continuous/repro/requirements-resolved.txt')

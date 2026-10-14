@@ -93,3 +93,4 @@ def write_record(path: str | Path, record: dict) -> None:
         os.replace(name, target)
     finally:
         Path(name).unlink(missing_ok=True)
+

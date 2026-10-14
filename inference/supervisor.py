@@ -2,6 +2,9 @@
 
 This is process supervision for trusted local code, not a security sandbox.
 The controller must load and validate its worker artifacts before writing output.
+Separate child sessions are cleaned only after their ancestry has been observed.
+A child that detaches and loses its parent between samples may be unidentifiable;
+without registration or an OS subreaper it cannot safely be claimed as owned.
 """
 import json
 import math
@@ -12,8 +15,9 @@ import subprocess
 import time
 
 
-_POLL_SECONDS = 0.05
-_PS_TIMEOUT_SECONDS = 0.2
+_POLL_SECONDS = 0.2
+_PS_TIMEOUT_SECONDS = 0.5
+_MAX_CONSECUTIVE_DISCOVERY_TIMEOUTS = 3
 
 
 def _snapshot(timeout):
@@ -115,6 +119,8 @@ def run(command: list[str], output: Path, timeout_seconds: float,
     success. Exceptions carry that same dict as ``supervisor_metadata``.
     TimeoutError/MemoryError/RuntimeError represent infrastructure failures.
     The supplied output must be a fresh, controller-written result file.
+    ``work_wall_s`` covers the original work deadline; ``cleanup_wall_s`` is
+    additional bounded process inspection/reaping time after work terminates.
     """
     started = time.monotonic()
     output = Path(output)
@@ -126,6 +132,7 @@ def run(command: list[str], output: Path, timeout_seconds: float,
                 'status': 'error',
                 'pid': None, 'returncode': None, 'peak_sampled_rss_bytes': 0,
                 'observed_pids': [], 'signaled_groups': [], 'signaled_pids': [],
+                'consecutive_discovery_timeouts': 0,
                 'discovery_errors': [], 'cleanup_errors': []}
     proc = tree = None
     failure = None
@@ -154,11 +161,21 @@ def run(command: list[str], output: Path, timeout_seconds: float,
                 try:
                     rss = tree.observe(_snapshot(min(_PS_TIMEOUT_SECONDS, remaining)))
                 except subprocess.TimeoutExpired as exc:
+                    metadata['discovery_errors'].append(f'{type(exc).__name__}: {exc}')
+                    metadata['consecutive_discovery_timeouts'] += 1
                     if time.monotonic() >= deadline:
                         raise TimeoutError('evaluation wall budget exceeded during process discovery') from exc
-                    raise RuntimeError('process discovery timed out') from exc
+                    if metadata['consecutive_discovery_timeouts'] >= _MAX_CONSECUTIVE_DISCOVERY_TIMEOUTS:
+                        raise RuntimeError('process discovery timed out 3 consecutive times') from exc
+                    # A loaded host may delay a single ps invocation. Retry
+                    # within the original deadline; never finish without a
+                    # fresh ownership/RSS observation or retry indefinitely.
+                    time.sleep(min(_POLL_SECONDS, max(0, deadline - time.monotonic())))
+                    continue
                 except (subprocess.SubprocessError, OSError, ValueError) as exc:
+                    metadata['discovery_errors'].append(f'{type(exc).__name__}: {exc}')
                     raise RuntimeError(f'process discovery failed: {exc}') from exc
+                metadata['consecutive_discovery_timeouts'] = 0
                 metadata['peak_sampled_rss_bytes'] = max(metadata['peak_sampled_rss_bytes'], rss)
                 if time.monotonic() >= deadline:
                     raise TimeoutError('evaluation wall budget exceeded')
@@ -180,11 +197,14 @@ def run(command: list[str], output: Path, timeout_seconds: float,
                               'memory' if isinstance(exc, MemoryError) else 'error')
         metadata['error'] = f'{type(exc).__name__}: {exc}'
     finally:
+        cleanup_started = time.monotonic()
+        metadata['work_wall_s'] = cleanup_started - started
         if tree is not None:
             tree.cleanup(proc, metadata)
             metadata['observed_pids'] = sorted(tree.identities)
         if proc is not None:
             metadata['returncode'] = proc.returncode
+        metadata['cleanup_wall_s'] = time.monotonic() - cleanup_started
         metadata['wall_s'] = time.monotonic() - started
         output.parent.mkdir(parents=True, exist_ok=True)
         metadata_path.write_text(json.dumps(metadata, indent=2, allow_nan=False) + '\n')

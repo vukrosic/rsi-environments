@@ -1,8 +1,9 @@
 include pyproject.toml package_build.py PACKAGING.md README.md
 recursive-include inference_env *.py
-include assets.py cache_probes.py controller.py interface.py reference.py replay.py
+include assets.py attempt.py cache_probes.py controller.py interface.py reference.py replay.py
 include rl_environment.py scorer.py shared_contract.py solution.py supervisor.py worker.py
 include assets-manifest.json model.json requirements-lock.txt requirements.txt tasks.json
+include TASK.md DESIGN.md RL-CONTRACT.md
 recursive-include shared *.py
 prune episodes
 prune evidence

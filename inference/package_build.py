@@ -18,23 +18,24 @@ import tempfile
 import tomllib
 
 ROOT = Path(__file__).resolve().parent
-PACKAGE_NAME = "vuk-rsi-inference"
-VERSION = "0.2.0"
+PROJECT = tomllib.loads((ROOT / "pyproject.toml").read_text("utf-8"))["project"]
+PACKAGE_NAME = PROJECT["name"]
+VERSION = PROJECT["version"]
 DIST_INFO = f"vuk_rsi_inference-{VERSION}.dist-info"
 RUNTIME_MODULES = (
-    "assets.py", "cache_probes.py", "controller.py", "interface.py",
+    "assets.py", "attempt.py", "cache_probes.py", "controller.py", "interface.py",
     "reference.py", "replay.py", "rl_environment.py", "scorer.py",
     "shared_contract.py", "solution.py", "supervisor.py", "worker.py",
 )
 RUNTIME_DATA = (
     "assets-manifest.json", "model.json", "requirements-lock.txt",
-    "requirements.txt", "tasks.json",
+    "requirements.txt", "tasks.json", "TASK.md", "DESIGN.md", "RL-CONTRACT.md",
 )
 PACKAGE_INIT = """\"\"\"Private runtime for the packaged RSI inference environment.\"\"\"\n"""
 
 
 def _metadata() -> str:
-    project = tomllib.loads((ROOT / "pyproject.toml").read_text("utf-8"))["project"]
+    project = PROJECT
     lines = [
         "Metadata-Version: 2.3",
         f"Name: {project['name']}",
@@ -107,7 +108,7 @@ def _stage(destination: Path) -> list[Path]:
         '"""Versioned RSI inference environment.\"\"\"\n'
         "from importlib.metadata import PackageNotFoundError, version\n"
         "try:\n    __version__ = version('vuk-rsi-inference')\n"
-        "except PackageNotFoundError:  # source-tree imports\n    __version__ = '0.2.0'\n"
+        f"except PackageNotFoundError:  # source-tree imports\n    __version__ = '{VERSION}'\n"
         "__all__ = ['CodingAgentEnvironment', 'InferenceEnvironment', '__version__']\n"
         "def __getattr__(name):\n"
         "    if name == 'CodingAgentEnvironment':\n"

@@ -5,7 +5,7 @@ backend-path = ["."]
 
 [project]
 name = "vuk-rsi-inference"
-version = "0.2.0"
+version = "0.2.3"
 description = "Versioned local inference optimization environment for SmolLM2-135M"
 readme = "PACKAGING.md"
 requires-python = ">=3.12,<3.13"

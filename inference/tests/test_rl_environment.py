@@ -32,6 +32,10 @@ class CodingAgentEnvironmentTests(unittest.TestCase):
         self.assertEqual(observation["split"], "train")
         self.assertEqual(observation["task_id"], "smollm2-inference-train-v1")
         self.assertEqual(observation["steps_remaining"], 2)
+        self.assertEqual(observation['evaluation_contract'],'rsi.inference.smollm2-135m.v2')
+        self.assertEqual(observation['constraints']['timing_batch_size'],1)
+        self.assertEqual(observation['constraints']['required_cache_probe_batch_sizes'],[1,2])
+        self.assertEqual(observation['constraints']['output_shape'],'[batch, vocab_size]')
         self.assertEqual(observation["starter_code"], (INFERENCE_DIR / "solution.py").read_text())
         self.assertEqual((env.episode / "agent.py").read_text(), observation["starter_code"])
 

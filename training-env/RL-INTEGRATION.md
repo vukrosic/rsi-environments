@@ -110,3 +110,10 @@ checks, while native termination/truncation and `agent.trainable=false` are
 asserted. Compatibility proof is distinct from a successful trainable rollout.
 A live-source drift exclusion is preserved; subsequent checks freeze needed
 native source so parallel builder edits cannot contaminate their snapshots.
+
+SessionBusy is an operational infrastructure condition. Constructor/reset may
+raise it; the outer adapter must exclude that unavailable rollout. step/final
+return blocked/null/truncated directly with info.session_state_unchanged=true
+and operational_phase=lockbusy. Such a response does not seal a concurrently
+active owner. The existing shared eligibility function rejects this transition
+under standard/train settings; no test used a training reward or updated policy.

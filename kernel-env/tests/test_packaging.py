@@ -23,6 +23,7 @@ def make_source_tree(root: Path) -> dict[str, bytes]:
         "kernel_env/submodule/task.py": b"TASK = 1\n",
         "suite/__init__.py": b"SUITE = True\n",
         "suite/LICENSE": b"Suite license\n",
+        "starters/softmax.py": b"def starter(): return None\n",
         "tests/test_one.py": b"def test_one(): pass\n",
         "examples/demo.py": b"print('demo')\n",
     }

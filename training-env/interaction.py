@@ -2,11 +2,19 @@
 import argparse
 import fcntl
 import json
+import math
+import time
+import uuid
 from pathlib import Path
 from evaluate import evaluate
 from protocol import get_protocol
+from suite.records import make_record, write_record
 
 EPISODE_API_VERSION = 'training-episode-v1'
+
+
+class SessionBusy(TimeoutError):
+    """The session owner prevented bounded cooperative lock acquisition."""
 
 
 class TrainingEnv:
@@ -16,10 +24,19 @@ class TrainingEnv:
     available for human CLI use. step returns observation/reward/terminated/
     truncated/info, plus the full measured record. Reward at terminal train
     episodes uses dev; heldout episodes use final. The external trainer must
-    not optimize on heldout episodes.
+    not optimize on heldout episodes. Constructor and reset may raise
+    SessionBusy before an action. A busy step/final truncates only the requesting
+    transition; unlike other infrastructure failures it does not seal the live
+    owner or change its state. lock_timeout_seconds is operational, not persisted.
     """
     def __init__(self, session_dir, data_dir, profile='smoke', device='cpu', seed=0,
-                 max_trials=10, calibration=None, task_split='train'):
+                 max_trials=10, calibration=None, task_split='train', lock_timeout_seconds=2):
+        if (isinstance(lock_timeout_seconds, bool)
+                or not isinstance(lock_timeout_seconds, (int, float))
+                or not math.isfinite(lock_timeout_seconds)
+                or not 0 <= lock_timeout_seconds <= 60):
+            raise ValueError('lock_timeout_seconds must be finite and in [0,60]')
+        self.lock_timeout_seconds = lock_timeout_seconds
         if isinstance(max_trials, bool) or not isinstance(max_trials, int) or not 1 <= max_trials <= 10:
             raise ValueError('max_trials must be an integer in [1,10]')
         if task_split not in {'train', 'heldout'}:
@@ -46,7 +63,21 @@ class TrainingEnv:
         class Lease:
             def __enter__(inner):
                 inner.handle = (self.root / '.session.lock').open('a+')
-                fcntl.flock(inner.handle, fcntl.LOCK_EX)
+                deadline = time.monotonic() + self.lock_timeout_seconds
+                try:
+                    while True:
+                        try:
+                            fcntl.flock(inner.handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                            return inner
+                        except BlockingIOError:
+                            remaining = deadline - time.monotonic()
+                            if remaining <= 0:
+                                raise SessionBusy('blocked infrastructure: session lock is busy; '
+                                                  'live session state is unchanged')
+                            time.sleep(min(.02, remaining))
+                except BaseException:
+                    inner.handle.close()
+                    raise
             def __exit__(inner, *args):
                 inner.handle.close()
         return Lease()
@@ -68,7 +99,7 @@ class TrainingEnv:
         temp.replace(self.state_path)
 
     def reset(self):
-        """Return task state; this never erases scored-trial history."""
+        """Return task state without erasing history; raises SessionBusy on contention."""
         with self._lock():
             state = self._read()
             return {'api_version': EPISODE_API_VERSION,
@@ -102,6 +133,33 @@ class TrainingEnv:
         return self._submit(candidate, final=True)
 
     def _submit(self, candidate, final, source_text=False):
+        try:
+            return self._submit_locked(candidate, final, source_text)
+        except SessionBusy as error:
+            c = self.config
+            split = 'final' if final and c['task_split'] == 'heldout' else 'dev'
+            record = make_record(environment='training', task='tinystories-next-token',
+                                 profile=c['profile'], status='blocked', reward=None,
+                                 metrics={'reason': str(error), 'operational_phase': 'lockbusy',
+                                          'session_state_unchanged': True},
+                                 provenance={'api_version': EPISODE_API_VERSION,
+                                             'task_split': c['task_split'], 'seed': c['seed'],
+                                             'lock_timeout_seconds': self.lock_timeout_seconds})
+            receipt = self.root / 'busy-receipts' / f'{uuid.uuid4()}.json'
+            write_record(receipt, record)
+            feedback = {'status': 'blocked', 'held_out_loss': None, 'reason': str(error),
+                        'measured_dev_reward': None, 'trials_remaining': None,
+                        'requires_terminal_action': False}
+            return {'observation': feedback, 'reward': None, 'terminated': final,
+                    'truncated': True,
+                    'info': {'api_version': EPISODE_API_VERSION, 'task_split': c['task_split'],
+                             'record_path': str(receipt), 'trainable': False,
+                             'reward_eligibility_reasons': ['infrastructure failure'],
+                             'exclude_from_rl': True, 'scored_data_split': split,
+                             'operational_phase': 'lockbusy', 'session_state_unchanged': True},
+                    'record': record}
+
+    def _submit_locked(self, candidate, final, source_text=False):
         with self._lock():
             state = self._read()
             if state['finalized']:

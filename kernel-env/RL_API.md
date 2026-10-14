@@ -7,7 +7,8 @@ the installed environment before a training claim. This package performs no
 gradient updates and makes no claim that prompt comparisons train a policy.
 
 1. Instantiate `KernelEnvironment(task, workspace, split=..., device=...,
-   profile=..., seed=..., calibration=..., max_steps=..., max_episode_seconds=...)`.
+   profile=..., seed=..., calibration=..., max_steps=..., max_episode_seconds=...,
+   difficulty_id=...)`.
    Choose a unique workspace for concurrent policies. One environment instance
    handles one episode at a time; separate instances/processes coordinate GPU
    use through the shared lease.
@@ -17,8 +18,11 @@ gradient updates and makes no claim that prompt comparisons train a policy.
    feedback. No final input tensors or answers appear in observations.
 3. Decode policy text into one JSON action: `edit`, `test`, or `submit`, with an
    optional complete single-file `code` string. `edit` requires code. Treat
-   invalid action schemas as parser failures under the trainer's policy; they
-   do not bypass the environment budget by issuing unbounded retries.
+   invalid action schemas as parser failures. The native API consumes a step
+   and returns invalid zero feedback with `provenance.stage=policy_schema` and
+   `metrics.scored=false`, without executing submitted code. An explicit
+   malformed submit or the last budgeted action seals the episode. These zeros
+   are parsing penalties, not fabricated timing or correctness measurements.
 4. Call `step(action)` and feed `transition["observation"]` back to the policy.
    Nonterminal rewards are 0; numeric development scores stay inside feedback.
    Stop on `terminated` or `truncated`.
@@ -60,12 +64,37 @@ baseline identity, tolerance and error formula. Shapes vary across cases;
 derive dimensions from inputs rather than hardcoding the nominal dimensions.
 This spec is task information, not evaluation outputs or hidden case answers.
 
+Training reset deterministically samples a canonical difficulty family from
+its episode seed. Repeated resets increment the seed; `reset(seed=...)` replays
+selection. Observation `difficulty` and `task_spec` agree on selected nominal
+shapes. Actual per-call variants/shapes/distributions/seeds live in trial
+records. `difficulty_id` fixes a family when desired. Eval-only operations do
+not use this sampler and retain their original implicit reset seed. Standard
+calibration must match the difficulty descriptor and source hashes; it can be
+reused across tensor seeds for the same family.
+
+For varied seeds, the same `calibration` string can point to a schema-1
+`kernel_calibration_index` for the training operation. Its `receipts` maps
+canonical family IDs to existing ordinary receipt paths; relative paths resolve
+beside the index. Partial indices are allowed. Unknown/missing families,
+nested indices and malformed/nonfinite/oversized data block with null reward.
+The index is only routing: hardware/software/source/timing conditions are still
+validated after selection. Exact index and receipt bytes and SHA-256 identities
+are saved in each scoring directory. Indices are operator artifacts, not policy
+actions or substitutes for actual idle measurements. This preserves the shared
+Verifiers adapter's existing single-path field and its exclusion behavior.
+
 Action count includes edits and tests. A submit or the last allowed action
 evaluates current code on final cases; budget exhaustion before scoring
 truncates. Each code execution is additionally bounded by `timeout`, capped
 to the remaining episode wall budget. A new reset creates a unique directory
 and preserves previous episode files. `final()` performs submit; it cannot
 re-score a completed episode without reset.
+
+`max_steps` must be an integer in `[1,1000]`, seed an integer in
+`[0,1000000000)`, and time budgets finite positive numbers; booleans are not
+numeric configuration values. Development seed offsets wrap inside the valid
+range. The wall deadline is checked before candidate writes or evaluation.
 
 Use smoke CPU rollouts only for installation and transition compatibility.
 Research training on speed reward uses standard profiles with successful idle

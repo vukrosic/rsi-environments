@@ -6,7 +6,7 @@ import unittest
 import torch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from cache_probes import inputs,run
+from cache_probes import ContractViolation,inputs,run
 from solution import Engine
 from scorer import compare
 from test_oracle_exclusion import artifact
@@ -45,6 +45,20 @@ class CacheProbeTests(unittest.TestCase):
         model=ContextModel()
         with self.assertRaises(AssertionError):
             run(StaleCache(model),self.probe_inputs(),'cpu',oracle=model.full)
+    def test_probe_output_shape_uses_explicit_contract_failure(self):
+        model=ContextModel()
+        class WrongShape(Engine):
+            def prefill(self,ids):return super().prefill(ids).unsqueeze(0)
+        with self.assertRaises(ContractViolation):
+            run(WrongShape(model),self.probe_inputs(),'cpu')
+    def test_probe_input_mutation_uses_explicit_contract_failure(self):
+        model=ContextModel()
+        class MutatingInput(Engine):
+            def prefill(self,ids):
+                ids[0,0]+=1
+                return super().prefill(ids)
+        with self.assertRaises(ContractViolation):
+            run(MutatingInput(model),self.probe_inputs(),'cpu')
     def test_wrong_probes_zero_even_when_timed_rows_match(self):
         reference=artifact(.1);candidate=artifact(.1)
         reference['cache_probes']=self.good();candidate['cache_probes']=self.good()

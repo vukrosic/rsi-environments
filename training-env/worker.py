@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from checks import InvalidCandidate, import_candidate, check_model, check_logits, check_causal
 from protocol import get_protocol
+from tensor_hashes import tensor_state_sha256, state_change_evidence
 
 
 def classify_exception(exc, phase):
@@ -47,7 +48,9 @@ def batch(data, starts, context, device):
 def train(args, phase_state=None):
     phase_state = phase_state if phase_state is not None else {}
     phase_state['phase'] = 'setup'
-    p = get_protocol(args.profile)
+    p = get_protocol(args.profile, getattr(args, "diagnostic", None))
+    if getattr(p, "diagnostic", None) and args.device != "cpu":
+        raise InvalidCandidate("cpu-training-v1 diagnostic requires device cpu")
     torch.set_num_threads(2)
     torch.manual_seed(args.seed)
     rng = np.random.default_rng(args.seed)
@@ -66,6 +69,14 @@ def train(args, phase_state=None):
     opt = sol.build_optimizer(model)
     # Evaluator owns update count and batches. Candidate-returned loss is ignored.
     initial = {k: v.detach().clone() for k, v in model.named_parameters()}
+    initial_state = None
+    if getattr(p, "diagnostic", None):
+        initial_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+        phase_state['phase'] = 'checkpoint-write'
+        initial_checkpoint = Path(args.checkpoint).with_name('initial-weights.pt')
+        if initial_checkpoint == Path(args.checkpoint):
+            raise InvalidCandidate('final checkpoint must differ from initial-weights.pt')
+        torch.save(initial_state, initial_checkpoint)
     sync(args.device)
     started = time.monotonic()
     for step in range(p.steps):
@@ -91,7 +102,14 @@ def train(args, phase_state=None):
     validated_seconds = time.monotonic() - started
     phase_state['phase'] = 'checkpoint-write'
     torch.save({k: v.detach().cpu() for k, v in model.state_dict().items()}, args.checkpoint)
-    return {'status': 'ok', 'phase': 'train-complete', 'params': count, 'steps': p.steps, 'train_seconds': seconds,
+    evidence = {}
+    if initial_state is not None:
+        final_state = torch.load(args.checkpoint, map_location='cpu', weights_only=True)
+        evidence = {'initial_tensor_sha256': tensor_state_sha256(initial_state),
+                    'final_tensor_sha256': tensor_state_sha256(final_state),
+                    'initial_checkpoint': str(initial_checkpoint),
+                    **state_change_evidence(initial_state, final_state)}
+    return {**evidence, 'status': 'ok', 'phase': 'train-complete', 'params': count, 'steps': p.steps, 'train_seconds': seconds,
             'training_tokens': p.steps * p.batch * p.context, 'parameters_changed': True,
             'train_with_final_validation_seconds': validated_seconds}
 
@@ -100,6 +118,7 @@ def main():
     ap = argparse.ArgumentParser()
     for name in ('candidate', 'train', 'checkpoint', 'result', 'profile', 'device'):
         ap.add_argument('--' + name, required=True)
+    ap.add_argument('--diagnostic')
     ap.add_argument('--seed', type=int, default=0)
     args = ap.parse_args()
     phase_state = {'phase': 'setup'}

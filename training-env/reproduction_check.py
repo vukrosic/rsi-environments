@@ -13,6 +13,11 @@ from pathlib import Path, PurePosixPath
 import subprocess
 import sys
 import tarfile
+import math
+import time
+from process_control import run_command, CommandTimeout
+
+_COMMAND_RECEIPTS = []
 
 
 FORBIDDEN_SUFFIXES = {".npy", ".pt", ".pth", ".log", ".jsonl", ".csv", ".bin"}
@@ -21,6 +26,7 @@ REQUIRED_FILES = {
     "training-env/prepare.py", "training-env/interaction.py", "training-env/starter.py",
     "training-env/data.py", "training-env/evaluate.py", "training-env/worker.py",
     "training-env/grader.py", "training-env/checks.py", "training-env/protocol.py",
+    "training-env/tensor_hashes.py", "training-env/process_control.py",
     "training-env/requirements.txt", "suite/__init__.py", "suite/records.py",
     "suite/resources.py",
 }
@@ -36,6 +42,8 @@ def sha256(path: Path) -> str:
 
 def inspect_members(archive: tarfile.TarFile) -> list[tarfile.TarInfo]:
     members = archive.getmembers()
+    if len(members)>512 or sum(member.size for member in members)>64_000_000:
+        raise ValueError("archive exceeds source-package count/size limits")
     files = []
     names = set()
     for member in members:
@@ -45,6 +53,8 @@ def inspect_members(archive: tarfile.TarFile) -> list[tarfile.TarInfo]:
         if member.issym() or member.islnk() or not (member.isfile() or member.isdir()):
             raise ValueError(f"unsupported archive entry: {member.name!r}")
         if member.isfile():
+            if member.size>2_000_000:
+                raise ValueError("source package member exceeds 2 MB")
             relative = "/".join(name.parts[1:]) if name.parts and name.parts[0] == "rsi" else "/".join(name.parts)
             lower_parts = {part.lower() for part in name.parts}
             if Path(name.name).suffix.lower() in FORBIDDEN_SUFFIXES or lower_parts & FORBIDDEN_PARTS:
@@ -77,8 +87,16 @@ def extract_safely(archive: tarfile.TarFile, members: list[tarfile.TarInfo], roo
 
 
 def run(python: Path, cwd: Path, args: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run([str(python), *args], cwd=cwd, env=env, text=True,
-                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False, timeout=150)
+    remaining=float(env.get("TRAINING_REPRO_DEADLINE",str(time.monotonic()+150)))-time.monotonic()
+    if remaining<=0:
+        raise CommandTimeout('cumulative reproduction deadline expired before command')
+    try:
+        result=run_command([str(python), *args], cwd=cwd, env=env, timeout=min(150,remaining))
+    except BaseException as exc:
+        if hasattr(exc, 'supervisor_metadata'):_COMMAND_RECEIPTS.append(exc.supervisor_metadata)
+        raise
+    _COMMAND_RECEIPTS.append(result.supervisor_metadata)
+    return result
 
 
 def require_ok(result: subprocess.CompletedProcess[str], label: str) -> str:
@@ -92,7 +110,12 @@ def main() -> int:
     parser.add_argument("--archive", required=True, type=Path)
     parser.add_argument("--python", required=True, type=Path, help="interpreter in the fresh environment")
     parser.add_argument("--output", required=True, type=Path, help="new, empty destination for extraction and receipt")
+    parser.add_argument("--timeout",type=float,default=180,help="cumulative reproduction work budget; cleanup can add bounded overhead")
     args = parser.parse_args()
+    if not math.isfinite(args.timeout) or not 0<args.timeout<=3600:
+        parser.error("timeout must be finite, positive and at most 3600 seconds")
+    deadline=time.monotonic()+args.timeout
+    _COMMAND_RECEIPTS.clear()
     archive_path, output = (p.expanduser().resolve() for p in (args.archive, args.output))
     # Keep the venv interpreter spelling: resolving its symlink bypasses venv discovery.
     python = Path(os.path.abspath(args.python.expanduser()))
@@ -112,6 +135,7 @@ def main() -> int:
     run_env["PYTHONPATH"] = str(suite_parent)
     run_env.pop("PYTHONHOME", None)
     run_env["PYTHONNOUSERSITE"] = "1"
+    run_env["TRAINING_REPRO_DEADLINE"] = str(deadline)
 
     versions = require_ok(run(python, env_dir, ["-c", "import json,sys,numpy,torch,tokenizers; print(json.dumps({'python':sys.version.split()[0],'prefix':sys.prefix,'base_prefix':sys.base_prefix,'numpy':numpy.__version__,'torch':torch.__version__,'tokenizers':tokenizers.__version__},sort_keys=True))"], run_env), "dependency version check")
     dependencies = json.loads(versions.strip().splitlines()[-1])
@@ -156,6 +180,8 @@ def main() -> int:
         "terminal_episode_record": record, "terminal_episode_trainable": episode_result.get("info", {}).get("trainable"),
         "outer_policy_trained": False, "device_used": "cpu", "scope": "same-Mac source-package reproduction; no fresh-machine install",
         "raw_data_or_private_logs_in_archive": False,
+        "cumulative_work_timeout_seconds": args.timeout, "command_supervision": _COMMAND_RECEIPTS,
+        "cleanup_scope": "observed process ancestry/groups with birth identity; not hostile-code isolation",
     }
     receipt_path = output / "reproduction-receipt.json"
     receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")

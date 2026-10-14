@@ -1,59 +1,125 @@
 {
-  "release": "v0.1.0-alpha.1",
+  "release": "v0.1.0-alpha.2",
   "date": "2026-10-14",
-  "python": "3.12.8",
-  "torch": "2.8.0",
-  "numpy": "2.2.5",
-  "device": "CPU on Apple Silicon",
-  "checks": {
-    "shared_tests": {
-      "passed": 14
-    },
-    "inference_tests": {
-      "passed": 51,
-      "subtests": 10
-    },
-    "training_tests": {
-      "passed": 84,
-      "subtests": 36
-    },
-    "kernel_pre_guard_tests": {
-      "passed": 123
-    },
-    "verifiers_adapter_tests": {
-      "passed": 26,
+  "scope": "limited CPU source alpha; compatibility adapter, no coding-policy optimizer",
+  "source_basis": {
+    "independent_review": "16 and17 native source/installation evidence; corrected transformed public export awaits independent acceptance",
+    "review16_manifest_sha256": "f074e6b80684e9641a6524ec8115d9f8978558287ad550511f5fe8916c21bbd7"
+  },
+  "fresh_export_checks": {
+    "adapter_tests": {
+      "passed": 40,
       "framework_version": "0.4.0"
     },
-    "kernel_cli_smoke": {
-      "status": "ok",
-      "correctness_passed": true,
-      "eligible_for_rl": false
+    "shared_tests": {
+      "passed": 14,
+      "standalone_training_import": "passed in isolated Python3.12 dependency prefix; no installed kernel masking"
     },
-    "verifiers_kernel_smoke": {
-      "framework_calls": 2,
+    "python_compilation": {
+      "passed": 122,
+      "method": "compile all curated source paths"
+    },
+    "kernel_framework_smoke": {
+      "calls": 2,
+      "actions": [
+        "test",
+        "submit"
+      ],
+      "native_correctness_passed": true,
       "terminated": true,
       "eligible_for_rl": false,
-      "policy": "scripted starter provider"
-    },
-    "kernel_final_guard_and_calibration_gate": {
-      "passed": 4,
-      "profile": "reduced CPU correctness fixture with simulated idle host for calibration-policy regression"
-    },
-    "kernel_post_guard_broad_checks": {
-      "passed": 55,
-      "timed_out": 1,
-      "timeout_resolution": "Replaced large numerical fixture in calibration-gate test; corrected gate subsequently passed."
-    },
-    "source_compilation": {
-      "status": "passed"
+      "deliberate_framework_scoring_exclusion": true,
+      "provider": "scripted starter"
     }
   },
+  "reviewed_native_evidence": {
+    "inference": "final0.2.3 wheel payload verified; historical CPU terminal predates final thread guard, standard timing unverified",
+    "training": "isolated local dependency prefix verified; saved seed17 real-data20-call CPU diagnostic weights/loss replay checked",
+    "kernel": "final source archive reproduced; installed runtime payload matched; exact final wheel install reviewed separately from archive"
+  },
+  "inner_gpt_diagnostic": {
+    "profile": "cpu-training-v1",
+    "optimizer_calls": 20,
+    "training_tokens": 5120,
+    "grading_tokens": 1024,
+    "seed": 17,
+    "parameter_count": 5063424,
+    "paired_cross_entropy": {
+      "before_rounded": 8.3575,
+      "after_rounded": 6.3965
+    },
+    "outer_policy_update": false,
+    "eligible_standard_rl_reward": false,
+    "scope": "single-seed native diagnostic with saved weights; does not establish standard-profile learning"
+  },
+  "historical_alpha1": {
+    "release": "v0.1.0-alpha.1",
+    "date": "2026-10-14",
+    "python": "3.12.8",
+    "torch": "2.8.0",
+    "numpy": "2.2.5",
+    "device": "CPU on Apple Silicon",
+    "checks": {
+      "shared_tests": {
+        "passed": 14
+      },
+      "inference_tests": {
+        "passed": 51,
+        "subtests": 10
+      },
+      "training_tests": {
+        "passed": 84,
+        "subtests": 36
+      },
+      "kernel_pre_guard_tests": {
+        "passed": 123
+      },
+      "verifiers_adapter_tests": {
+        "passed": 26,
+        "framework_version": "0.4.0"
+      },
+      "kernel_cli_smoke": {
+        "status": "ok",
+        "correctness_passed": true,
+        "eligible_for_rl": false
+      },
+      "verifiers_kernel_smoke": {
+        "framework_calls": 2,
+        "terminated": true,
+        "eligible_for_rl": false,
+        "policy": "scripted starter provider"
+      },
+      "kernel_final_guard_and_calibration_gate": {
+        "passed": 4,
+        "profile": "reduced CPU correctness fixture with simulated idle host for calibration-policy regression"
+      },
+      "kernel_post_guard_broad_checks": {
+        "passed": 55,
+        "timed_out": 1,
+        "timeout_resolution": "Replaced large numerical fixture in calibration-gate test; corrected gate subsequently passed."
+      },
+      "source_compilation": {
+        "status": "passed"
+      }
+    },
+    "limitations": [
+      "One loaded concurrent inference cleanup test failed; isolated supervision tests and full inference rerun passed.",
+      "Fresh internet installation on a second machine has not been verified.",
+      "No calibrated GPU or standard speedup result."
+    ],
+    "outer_policy_weights_trained": false,
+    "learned_improvement_verified": false,
+    "recursive_improvement_verified": false
+  },
   "limitations": [
-    "One loaded concurrent inference cleanup test failed; isolated supervision tests and full inference rerun passed.",
-    "Fresh internet installation on a second machine has not been verified.",
-    "No calibrated GPU or standard speedup result."
+    "Fresh complete-suite installation on a second machine unverified.",
+    "Native review receipts are distinct from current exported tests; old full suite counts not rerun for alpha2.",
+    "CPU smoke/diagnostic feedback is excluded from standard RL updates.",
+    "Standard timing/accelerator calibration remains unverified.",
+    "Submitted Python is trusted local code; process controls are not a hostile-code sandbox."
   ],
   "outer_policy_weights_trained": false,
   "learned_improvement_verified": false,
-  "recursive_improvement_verified": false
+  "recursive_improvement_verified": false,
+  "external_adoption_verified": false
 }

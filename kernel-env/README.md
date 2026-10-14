@@ -1,4 +1,4 @@
-# Kernel optimization RL environment — release candidate 0.1.1
+# Kernel optimization RL environment — local development 0.1.4
 
 An environment for an external RL trainer to teach a coding agent to optimize
 six float32 training kernels. The policy produces Python code, the environment
@@ -31,7 +31,8 @@ python -m pytest -q
 ```
 
 The CLI works without installing from this directory as
-`python -m kernel_env.cli`. Smoke workloads are small development
+`python -m kernel_env.cli`. On this Mac the existing torch runtime is
+`python3`. Smoke workloads are small development
 checks. Their numeric reward is useful to test integration and must not be
 mixed into standard research results.
 
@@ -67,8 +68,12 @@ Successful or incorrect terminal submissions set `terminated=True`; invalid
 outputs earn zero. Infrastructure blocks and execution failures set
 `truncated=True` and `reward=None`. A trainer must exclude those episodes from
 reward optimization, retaining them as infrastructure diagnostics. Further
-actions require another reset. Malformed action schemas raise `ValueError`;
-the framework adapter must convert or reject malformed policy text.
+actions require another reset. Malformed native actions consume a step and
+return explicit parser-invalid zero feedback. They never execute a kernel;
+the receipt has `provenance.stage=policy_schema` and `metrics.scored=false`.
+At the action limit or an explicit `submit` they terminate. Expired actions truncate before changing
+candidate code. A trainer must distinguish these parsing penalties from a
+kernel actually measured incorrect by the scorer.
 
 Both transitions and score records contain `task_split`, `trainable`,
 `exclude_from_rl`, and `rl_exclusion_reasons`. Evaluation-only tasks and null
@@ -82,6 +87,35 @@ Observations include a `task_spec` describing the exact operation, signature,
 constants, nominal shapes/dtypes, and error tolerance. Agents can understand
 the task without reading the scorer; implementations must still support the
 documented shape variants.
+
+The four training kernels sample one of nine difficulty families: three
+nominal/odd/wide shape families crossed with ordinary/offset/mixed-scale inputs.
+`difficulty` in the observation is authoritative for the selected family's
+nominal shapes and distribution; `task_spec` uses those shapes too. Each trial
+records its actual variant, shapes, distribution and seed. Repeated training
+resets advance the seed; `reset(seed=...)` explicitly replays an episode's
+selection. Evaluation-only operations preserve their original generator and
+implicit reset seed. Difficulty sampling never uses held-out performance.
+
+For a fixed family, pass `difficulty_id="wide/mixed_scale"` to the constructor.
+Raw scorer/CLI use the historical workload unless `--difficulty-id` is supplied.
+An accepted standard calibration must match the selected family as well as
+the scorer/hardware hashes; reuse across tensor seeds is permitted for the
+same family. Calibrate one requested family, not a redundant benchmark fleet:
+
+```sh
+kernel-env calibrate softmax --device mps --difficulty-id wide/mixed_scale
+kernel-env evaluate softmax work/candidate.py --device mps --profile standard \
+  --difficulty-id wide/mixed_scale --calibration /absolute/path/to/calibration.json
+```
+
+For seed-selected families, `calibration` can be an index path instead of a
+single receipt. `kernel-env index-calibrations TASK --receipt FAMILY=PATH
+--output NEW_INDEX` assembles existing successful receipts without measuring
+anything. It accepts partial indices; a missing family blocks with null reward.
+The native scorer still validates the selected receipt's full hardware/source/
+difficulty/timing identity and saves exact read-byte snapshots of both files.
+No shared trainer adapter change is required. See [STANDARD-PLAN.md](STANDARD-PLAN.md).
 
 See [RL_API.md](RL_API.md) for precise integration requirements. There is no
 duplicate trainer framework here: the coordinating chat owns the shared,
@@ -147,6 +181,10 @@ outputs of the exact shape on the requested device and unchanged inputs.
 The error is `max(abs(actual-expected)/max(1,abs(expected)))`: tolerance `2e-3`
 for five tasks and `2e-2` for the fixed five-step Newton–Schulz iteration.
 
+Softmax additionally requires probabilities in `[0,1]` and each row's sum to
+be within `2e-3` of one. Elementwise tolerance alone can accept zeroed low-
+probability rows; those are not valid normalized probabilities and earn zero.
+
 | Task | Standard nominal input | Competitive baseline |
 | --- | --- | --- |
 | rmsnorm | 8192 × 1024 plus 1024 weights | `F.rms_norm`, epsilon 1e-6 |
@@ -190,9 +228,26 @@ Historical `rsi/kernels/` and the earlier `research-envs` adapter supplied
 operator definitions, workload dimensions and useful baseline pieces. They
 were read as references and remain unchanged by this environment build.
 Fresh-input timing, independent parent checks, episode control and evidence
-collection are implemented and tested here. See [release validation](../VALIDATION.md)
-for actual release checks and remaining GPU/trainer limitations.
+collection are implemented and tested here. Local 0.1.4 verification on October
+14 includes 108 focused checks, 252 exported tests collected, and the exported
+CPU reproduction command completed against a wheel installed in a new isolated
+Python environment with freshly installed torch 2.8.0 and NumPy 2.2.5. This is
+same-Mac CPU compatibility. Standard calibrated timing, CUDA execution,
+coding-policy weight updates, held-out learning gains and second-machine usage
+remain unverified. A required-family MPS calibration attempt blocked before
+kernel execution because an unrelated process exceeded the CPU-load limit.
 
-Softmax correctness additionally requires probabilities in `[0, 1]` and each row
-to sum to one within the task tolerance. This prevents zero or missing-mass
-outputs from passing only because each probability is individually small.
+Source-only packaging is reproducible and excludes episode data, logs, caches,
+private/operator receipts and dependencies. Build it with
+`python examples/build_source_release.py --output dist/kernel-env-source-0.1.4.zip`.
+The explicit source allowlist and SHA-256 manifest include runnable starters,
+tests and license files. Existing archive paths are never overwritten. Wheels
+contain only the package, bundled licensed helpers and metadata. Release
+artifacts remain local; nothing is published by these commands.
+
+For an external CPU reproduction receipt after dependency installation, use
+`python examples/reproduction_check.py --output /absolute/path/to/new-receipt.json`.
+The checker records actual imported code identity and runtime, exercises fixed
+correct and wrong-softmax smoke submissions, and preserves their records. It
+refuses existing outputs/workspaces and runs no accelerator or network work.
+A local demonstration is not an actual second-machine or adoption receipt.

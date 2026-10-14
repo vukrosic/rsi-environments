@@ -25,6 +25,7 @@ os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
 ATOL = RTOL = 0.002
 LENGTHS = (32, 128, 512)
+VOCAB_SIZE = 49152
 LIMITS = {'development_calls': 10, 'final_calls': 1, 'worker_wall_s': 180,
           'evaluation_wall_s': 600, 'worker_rss_bytes': 6_000_000_000,
           'mps_driver_bytes': 4_000_000_000, 'cpu_threads': 2}
@@ -37,9 +38,72 @@ class OracleFailure(RuntimeError):
     """The evaluator cannot supply a consistent correctness reference."""
     pass
 
-def compare(reference, candidate):
+def validate_artifact(artifact, task):
+    """Bind worker coverage to saved inputs, independently of peer agreement.
+
+    Agreement between two incomplete outputs is not a correctness oracle.
+    Legacy comparison-only callers may omit task; executing V2 scoring cannot.
+    """
+    rows = artifact['rows']
+    cases = task['cases']
+    if not cases or len(rows) != len(cases):
+        raise ValueError('artifact does not cover the input cases')
+    vocabulary = task.get('vocab_size', VOCAB_SIZE)
+    steps = task['decode_steps']
+    if len({case['key'] for case in cases}) != len(cases):
+        raise ValueError('duplicate input case identities')
+
+    def logits(value, shape, label):
+        if not isinstance(value, torch.Tensor) or tuple(value.shape) != tuple(shape):
+            raise ValueError(f'{label}: expected shape {tuple(shape)}')
+        if not value.is_floating_point() or not torch.isfinite(value).all():
+            raise ValueError(f'{label}: expected finite floating logits')
+
+    for row, case in zip(rows, cases):
+        batch, length = case['ids'].shape
+        if row['key'] != case['key'] or row['length'] != length:
+            raise ValueError('artifact case identity/length differs from inputs')
+        logits(row['first'], (batch, vocabulary), 'first')
+        logits(row['greedy'], (steps, batch, vocabulary), 'greedy')
+        logits(row['forced'], (len(case['forced']), batch, vocabulary), 'forced')
+        tokens = row['tokens']
+        if (not isinstance(tokens, torch.Tensor) or tokens.shape != (steps, batch, 1)
+                or tokens.dtype not in (torch.int8, torch.int16, torch.int32, torch.int64, torch.uint8)):
+            raise ValueError('generated tokens: wrong shape or integer dtype')
+        selected = torch.cat([row['first'].unsqueeze(0), row['greedy'][:-1]], dim=0).argmax(-1, keepdim=True)
+        if not torch.equal(tokens, selected):
+            raise ValueError('generated tokens do not follow recorded greedy logits')
+
+    if 'cache_probe_inputs' not in task:
+        raise ValueError('V2 task is missing required cache probe inputs')
+    probes = task['cache_probe_inputs']
+    a, b, branches = probes['a'], probes['b'], probes['branches']
+    # Deliberately specify expected contexts outside the worker's probe runner.
+    expected = [
+        ('request-a', a), ('request-a-step', torch.cat([a, branches[0]], 1)),
+        ('request-b', b), ('request-a-after-b', a),
+        ('branch-left-1', torch.cat([a, branches[0]], 1)),
+        ('branch-left-2', torch.cat([a, branches[0], branches[1]], 1)),
+        ('branch-right-reset', a), ('branch-right-1', torch.cat([a, branches[2]], 1)),
+        ('repeated-prefix-extension', torch.cat([a, probes['extension']], 1)),
+        ('shorter-prefix-reset', a[:, :3]), ('batch-two-reset', probes['batch']),
+        ('batch-two-step', torch.cat([probes['batch'], probes['batch_tokens']], 1)),
+        ('batch-one-after-two', a),
+    ]
+    actual = artifact.get('cache_probes', [])
+    if len(actual) != len(expected):
+        raise ValueError('V2 artifact must contain all thirteen cache probes')
+    for row, (key, context) in zip(actual, expected):
+        if row['key'] != key or not torch.equal(row['context'], context):
+            raise ValueError('cache probe identity/context differs from inputs')
+        logits(row['logits'], (context.shape[0], vocabulary), f'cache probe {key}')
+
+def compare(reference, candidate, task=None):
     metrics = {'atol': ATOL, 'rtol': RTOL}
     try:
+        if task is not None:
+            validate_artifact(reference, task)
+            validate_artifact(candidate, task)
         expected, actual = reference['rows'], candidate['rows']
         if len(expected) != len(actual) or not expected:
             raise ValueError('wrong number of cases')
@@ -120,9 +184,16 @@ def lock(path):
         finally:
             fcntl.flock(f, fcntl.LOCK_UN)
 
+def measurement_lock_path():
+    target=Path(os.environ.get('RSI_INFERENCE_MEASUREMENT_LOCK','/tmp/rsi-inference-measurement.lock')).expanduser()
+    if not target.is_absolute():raise ValueError('measurement lock override must be absolute')
+    return target
+
 def make_inputs(mode, nonce, partition=None):
     from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained(local_model(), local_files_only=True)
+    if tokenizer.vocab_size != VOCAB_SIZE:
+        raise ValueError('pinned model vocabulary differs from the evaluation contract')
     generator = torch.Generator().manual_seed(int(nonce[:15], 16))
     trials = 5 if mode == 'final' else (1 if mode == 'check' else 3)
     count = 2
@@ -144,8 +215,56 @@ def make_inputs(mode, nonce, partition=None):
                 forced = torch.randint(3, tokenizer.vocab_size, (2, 1, 1), generator=generator)
                 cases.append(dict(key=f'{trial}:{length}:{sample}', ids=ids, forced=forced))
     return {'cases': cases, 'decode_steps': 4 if mode == 'check' else 8,
+            'vocab_size': VOCAB_SIZE,
             'partition': partition, 'task_id': spec['task_id'],
             'cache_probe_inputs':cache_inputs(nonce,tokenizer.vocab_size)}
+
+WORKER_FAILURE_STAGES = {
+    'dependency_import', 'worker_setup', 'asset_lookup', 'model_load', 'input_load',
+    'candidate_import', 'engine_init', 'prefill', 'decode', 'candidate_contract',
+    'device_sync', 'reference_oracle', 'worker_processing', 'cache_probes', 'output_save',
+}
+
+def read_worker_failure(output, source, pid, returncode):
+    """Only source/PID-bound direct candidate failures earn zero credit.
+
+    No usable receipt, a signal, or unknown attribution is infrastructure. This
+    validates bookkeeping for trusted code, not authentication of a hostile child.
+    """
+    path = output.with_suffix('.failure.json')
+    try:
+        with path.open('rb') as stream:
+            content = stream.read(16385)
+        if len(content) > 16384:
+            raise ValueError('worker failure receipt exceeds 16 KiB')
+        value = json.loads(content)
+        if not isinstance(value, dict) or set(value) != {
+                'schema_version', 'pid', 'source_sha256', 'stage', 'classification', 'error'}:
+            raise ValueError('worker failure receipt schema mismatch')
+        if (type(value['schema_version']) is not int or value['schema_version'] != 1
+                or type(value['pid']) is not int or value['pid'] != pid
+                or value['source_sha256'] != sha(source)):
+            raise ValueError('worker failure receipt identity mismatch')
+        if (not isinstance(value['stage'], str) or value['stage'] not in WORKER_FAILURE_STAGES
+                or not isinstance(value['classification'], str)
+                or value['classification'] not in ('candidate', 'infrastructure', 'unknown')):
+            raise ValueError('worker failure receipt attribution mismatch')
+        error = value['error']
+        if (not isinstance(error, dict) or set(error) != {'type', 'message', 'origin'}
+                or not isinstance(error['type'], str) or not 1 <= len(error['type']) <= 128
+                or not isinstance(error['message'], str) or len(error['message']) > 2048
+                or error['origin'] not in ('submission', 'worker', 'provider', 'unknown', 'contract')):
+            raise ValueError('worker failure receipt error schema mismatch')
+        if value['classification'] == 'candidate':
+            direct = value['stage'] in {'candidate_import', 'engine_init', 'prefill', 'decode'} and error['origin'] == 'submission'
+            contract = value['stage'] == 'candidate_contract' and error['origin'] == 'contract'
+            if not (direct or contract) or returncode <= 0:
+                raise ValueError('unsupported candidate failure attribution')
+        return value
+    except FileNotFoundError:
+        return None
+    except Exception as exc:
+        return {'classification': 'unknown', 'receipt_error': f'{type(exc).__name__}: {exc}'}
 
 def child(source, inputs, output, device, deadline):
     cmd = [sys.executable, str(output.parent / 'worker.py'), str(source), str(inputs), str(output), '--device', device]
@@ -153,6 +272,10 @@ def child(source, inputs, output, device, deadline):
     peak = 0
     observations = []
     next_check = started
+    failure = None
+    failure_path = output.with_suffix('.failure.json')
+    # Each invocation owns its fresh output path; never reuse an old failure.
+    failure_path.unlink(missing_ok=True)
     with output.with_suffix('.log').open('w') as log:
         proc = subprocess.Popen(cmd, stdout=log, stderr=log, start_new_session=True,
             env=dict(os.environ, TOKENIZERS_PARALLELISM='false', HF_HUB_OFFLINE='1',
@@ -172,7 +295,13 @@ def child(source, inputs, output, device, deadline):
                     next_check = time.monotonic() + 5
                 time.sleep(0.25)
             if proc.returncode:
-                raise RuntimeError(f'worker exit {proc.returncode}; see {output.with_suffix(".log").name}')
+                failure = read_worker_failure(output, source, proc.pid, proc.returncode)
+                message = f'worker exit {proc.returncode}; see {output.with_suffix(".log").name}'
+                if failure is not None:
+                    message += f'; {failure.get("stage", "unknown")}: {failure.get("error", {})}'
+                if failure is not None and failure.get('classification') == 'candidate':
+                    raise CandidateFailure(message)
+                raise RuntimeError(message)
         finally:
             # Clean up only this scorer-created process group, including any
             # submission descendants. Never touch unrelated applications.
@@ -184,7 +313,8 @@ def child(source, inputs, output, device, deadline):
                 proc.wait()
             output.with_suffix('.worker.json').write_text(json.dumps({
                 'wall_s': time.monotonic()-started, 'peak_sampled_rss_bytes': peak,
-                'returncode': proc.returncode, 'conditions': observations}, indent=2)+'\n')
+                'returncode': proc.returncode, 'conditions': observations,
+                'failure_report': failure}, indent=2)+'\n')
     return {'wall_s': time.monotonic() - started, 'peak_sampled_rss_bytes': peak,
             'artifact_sha256': sha(output), 'conditions': observations}
 
@@ -224,7 +354,7 @@ def _evaluate(solution, episode, mode='development', device='cpu', diagnostic=Fa
         raise ValueError('unknown task partition')
     solution, episode = Path(solution).resolve(), Path(episode).resolve()
     episode.mkdir(parents=True, exist_ok=True)
-    with lock(episode / '.episode.lock'), lock(Path('/tmp/rsi-inference-measurement.lock')), accelerator_lock(device=device, timeout_seconds=0) as lease:
+    with lock(episode / '.episode.lock'), lock(measurement_lock_path()), accelerator_lock(device=device, timeout_seconds=0) as lease:
         state_path = episode / 'state.json'
         state = json.loads(state_path.read_text()) if state_path.exists() else {'development': 0, 'final': 0}
         if state['final']:
@@ -244,9 +374,9 @@ def _evaluate(solution, episode, mode='development', device='cpu', diagnostic=Fa
         for function, name in ((accelerator_lock,'resources.py'), (speed_reward,'records.py')):
             shutil.copyfile(Path(sys.modules[function.__module__].__file__), directory / 'shared' / name)
         (directory / 'shared' / '__init__.py').touch()
-        result = {'schema_version': 1, 'task': 'rsi.inference.smollm2-135m.v1',
+        result = {'schema_version': 1, 'task': 'rsi.inference.smollm2-135m.v2',
             'mode': mode, 'device': device, 'nonce': nonce, 'limits': LIMITS,
-            'ok': False, 'reward': 0.0, 'timing_valid': False,
+            'ok': False, 'reward': None, 'timing_valid': False,
             'evidence_kind': 'not_executed', 'artifact_dir': str(directory),
             'source_sha256': sha(directory / 'submission.py'),
             'evaluator_hashes': {str(p.relative_to(directory)): sha(p) for p in directory.rglob('*') if p.is_file()},
@@ -275,18 +405,36 @@ def _evaluate(solution, episode, mode='development', device='cpu', diagnostic=Fa
                 try:
                     result['workers'][name] = child(source, directory/'inputs.pt', directory/f'{name}.pt', device, start+600)
                     result['evidence_kind'] = 'pretrained_model'
-                except (RuntimeError, MemoryError, TimeoutError) as exc:
-                    if name == 'candidate' and time.monotonic() < start+600:
-                        raise CandidateFailure(str(exc)) from exc
+                except CandidateFailure as exc:
+                    if name != 'candidate' or time.monotonic() >= start+600:
+                        raise RuntimeError(f'{name} failed: {exc}') from exc
                     raise
             reference, candidate, bookend = [torch.load(directory/f'{name}.pt', weights_only=True) for name in ('baseline_before','candidate','baseline_after')]
-            verdict = compare(reference, candidate)
+            for name, value in [('baseline_before', reference), ('baseline_after', bookend)]:
+                try:
+                    validate_artifact(value, inputs)
+                except Exception as exc:
+                    raise OracleFailure(f'{name} artifact incomplete: {exc}') from exc
+            verdict = compare(reference, candidate, inputs)
             result.update(verdict)
-            baseline_verdict = compare(reference, bookend)
+            baseline_verdict = compare(reference, bookend, inputs)
             result['metrics']['candidate_matches_initial_reference'] = verdict['ok']
             result['metrics']['baseline_comparison'] = baseline_verdict
             if not baseline_verdict['ok']:
                 raise OracleFailure('baseline nondeterminism: '+baseline_verdict['error'])
+            for name, digest in result['evaluator_hashes'].items():
+                if sha(directory/name) != digest:
+                    raise ValueError(f'snapshot mutated: {name}')
+            for name, digest in CONTROLLER_HASHES.items():
+                if sha(HERE/name) != digest or sha(directory/name) != digest:
+                    raise ValueError(f'controller source changed since import: {name}')
+            if sha(directory/'inputs.pt') != result['inputs_sha256']:
+                raise ValueError('input artifact mutated')
+            if not verdict['ok']:
+                # An incomplete/wrong candidate need not have timing samples.
+                # Validate references and integrity first, then preserve zero
+                # credit instead of failing later in timing aggregation.
+                raise CandidateFailure(verdict['error'])
             result['metrics'].update(timing(reference, candidate, bookend, inputs['decode_steps']))
             result['metrics']['setup'] = {name: {
                 'engine_init_s': value.get('engine_init_s'), 'warmup_s': value['warmup_s'],
@@ -296,14 +444,6 @@ def _evaluate(solution, episode, mode='development', device='cpu', diagnostic=Fa
             result['machine_after'] = after
             observed = [m for w in result['workers'].values() for m in w['conditions']]
             clean = not any(m['blockers'] for m in [before,after]+result['conditions']+observed)
-            for name, digest in result['evaluator_hashes'].items():
-                if sha(directory/name) != digest:
-                    raise ValueError(f'snapshot mutated: {name}')
-            for name, digest in CONTROLLER_HASHES.items():
-                if sha(HERE/name) != digest or sha(directory/name) != digest:
-                    raise ValueError(f'controller source changed since import: {name}')
-            if sha(directory/'inputs.pt') != result['inputs_sha256']:
-                raise ValueError('input artifact mutated')
             stable = result['metrics']['max_bookend_drift'] <= 0.05 and result['metrics']['max_baseline_relative_mad'] <= 0.05
             result['timing_valid'] = clean and stable and not diagnostic and mode != 'check'
             result['status'] = ('passed' if result['ok'] else 'incorrect') if result['timing_valid'] else ('diagnostic_pass' if result['ok'] else 'diagnostic_incorrect')
@@ -342,9 +482,9 @@ def _evaluate_with_errors(solution, episode, mode='development', device='cpu', d
         directory = Path(episode).resolve() / f'event-{nonce[:8]}'
         directory.mkdir(parents=True, exist_ok=True)
         busy = isinstance(exc, (BlockingIOError, TimeoutError))
-        raw = {'schema_version': 1, 'task': 'rsi.inference.smollm2-135m.v1',
+        raw = {'schema_version': 1, 'task': 'rsi.inference.smollm2-135m.v2',
             'mode': mode, 'device': device, 'nonce': nonce, 'limits': LIMITS,
-            'ok': False, 'reward': 0.0, 'timing_valid': False,
+            'ok': False, 'reward': None, 'timing_valid': False,
             'status': 'blocked_timing' if busy else 'failed',
             'error': f'{type(exc).__name__}: {exc}', 'evaluation_wall_s': 0.0,
             'artifact_dir': str(directory), 'evidence_kind': 'not_executed',
@@ -384,7 +524,7 @@ def evaluate(solution, episode, mode='development', device='cpu', diagnostic=Fal
         (directory/'result.json').write_text(json.dumps(result,indent=2,allow_nan=False)+'\n')
         return result
     except Exception as exc:
-        result = {'schema_version':1, 'task':'rsi.inference.smollm2-135m.v1',
+        result = {'schema_version':1, 'task':'rsi.inference.smollm2-135m.v2',
             'mode':mode,'device':device,'nonce':nonce,'limits':LIMITS,
             'ok':False,'reward':None,'timing_valid':False,'status':'failed',
             'error':f'{type(exc).__name__}: {exc}',

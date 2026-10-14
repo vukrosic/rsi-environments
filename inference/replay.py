@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import torch
 from assets import sha
-from scorer import compare
+from scorer import compare, validate_artifact
 
 def recorded_file(directory, name, digest):
     path = (directory / name).resolve()
@@ -28,14 +28,20 @@ def replay(directory):
         for name, digest in original['evaluator_hashes'].items():
             recorded_file(directory,name,digest)
         recorded_file(directory,'submission.py',original['source_sha256'])
-        recorded_file(directory,'inputs.pt',original['inputs_sha256'])
+        inputs_path = recorded_file(directory,'inputs.pt',original['inputs_sha256'])
         artifacts = {}
         for name in ('baseline_before','candidate','baseline_after'):
             path = recorded_file(directory,name+'.pt',original['workers'][name]['artifact_sha256'])
             artifacts[name] = torch.load(path,map_location='cpu',weights_only=True)
         result['artifact_hashes_verified'] = True
-        oracle = compare(artifacts['baseline_before'],artifacts['baseline_after'])
-        candidate = compare(artifacts['baseline_before'],artifacts['candidate'])
+        task = None
+        if original.get('task') == 'rsi.inference.smollm2-135m.v2':
+            task = torch.load(inputs_path,map_location='cpu',weights_only=True)
+            for name in ('baseline_before', 'baseline_after'):
+                validate_artifact(artifacts[name],task)
+            result['input_coverage_verified'] = True
+        oracle = compare(artifacts['baseline_before'],artifacts['baseline_after'],task)
+        candidate = compare(artifacts['baseline_before'],artifacts['candidate'],task)
         result['oracle_comparison'] = oracle
         result['candidate_comparison'] = candidate
         result['oracle_consistent'] = oracle['ok']

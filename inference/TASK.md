@@ -52,6 +52,11 @@ All argmax token identities and the complete generated token trace must match
 exactly. Shapes and case identities must match. A single failure invalidates
 the whole submission. The baseline additionally compares the end of each greedy
 and forced continuation against uncached full-context model evaluation.
+V2 artifacts must cover every saved input case, all 49,152 vocabulary logits and
+all thirteen cache probes, with the specified step counts and exact input contexts.
+Generated tokens must follow the recorded greedy logits. Agreement between two
+incomplete artifacts does not establish correctness. An incomplete reference is
+an evaluator error/null; an incomplete candidate with complete references is invalid/zero.
 
 ## Reward and budgets
 
@@ -61,6 +66,9 @@ baseline/candidate ratios with an equal-weight geometric mean. The standardized
 reward is `speedup/(1+speedup)`, so unchanged code is about 0.5 on a stable machine.
 An invalid candidate receives 0; infrastructure errors and unreliable timing
 receive null in the normalized record. Raw diagnostic ratios are never rewards.
+Worker startup, provider/device, unknown-attribution and supervision failures are
+infrastructure/null. A source/PID-bound failure receipt or explicit Engine contract
+violation is required before an execution failure receives candidate zero credit.
 `effect_above_noise` separately distinguishes a speed ratio from a supported gain.
 
 An episode permits ten development/check calls and one final call. Final seals

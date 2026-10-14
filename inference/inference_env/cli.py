@@ -5,6 +5,7 @@ import argparse
 import platform
 import runpy
 import sys
+from pathlib import Path
 
 from . import __version__
 
@@ -27,8 +28,16 @@ def main(argv: list[str] | None = None) -> int:
         "score": "scorer",
         "replay": "replay",
     }[args.command]
-    sys.argv = [f"inference_env._runtime.{module}", *remaining]
-    runpy.run_module(f"inference_env._runtime.{module}", run_name="__main__")
+    runtime = Path(__file__).resolve().parent / "_runtime"
+    if runtime.is_dir():
+        sys.argv = [f"inference_env._runtime.{module}", *remaining]
+        runpy.run_module(f"inference_env._runtime.{module}", run_name="__main__")
+    else:
+        # Source checkout: use the flat scripts without making the wheel
+        # expose their generic module names at install time.
+        script = Path(__file__).resolve().parent.parent / f"{module}.py"
+        sys.argv = [str(script), *remaining]
+        runpy.run_path(str(script), run_name="__main__")
     return 0
 
 
