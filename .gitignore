@@ -1,0 +1,53 @@
+# Local Python/dependency environments and caches
+.venv/
+.venv-*/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+**/.cache/
+.DS_Store
+
+# Downloaded datasets and model assets
+**/data/
+**/smoke-data/
+**/models/
+**/weights/
+**/tokenizer-cache/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.npy
+*.npz
+
+# Private runs, source-workspace evidence and local snapshots
+**/episodes/
+**/runs/
+**/evidence/
+**/checkpoints/
+**/repro-episode/
+**/work/
+**/releases/
+**/release-check/
+**/smoke-output/
+*.log
+
+# Built distributions go on GitHub releases, not in source history
+**/build/
+**/dist/
+*.egg-info/
+*.whl
+*.tar.gz
+
+# Local secrets and editor files
+.env
+.env.*
+*.pem
+*.key
+.idea/
+.vscode/

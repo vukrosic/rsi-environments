@@ -1,0 +1,25 @@
+# Verifiers 0.4.0 v1 config. Supply your EXISTING local policy server.
+model = "local-coding-policy"
+push = false
+max_concurrent = 1
+output_dir = "suite/integration/evidence/eval-cli"
+[client]
+base_url = "http://127.0.0.1:8000/v1"
+api_key_var = "RSI_LOCAL_UNUSED"
+[select]
+limit = 3
+[env.taskset]
+id = "rsi-coding-suite"
+split = "train"
+count = 1
+[env.agent.runtime]
+type = "subprocess"
+[env.agent.harness]
+id = "rsi-coding-suite"
+profile = "smoke"
+compatibility_only = true
+horizon = 2
+[env.agent.timeout]
+rollout = 1600
+[env.timeout]
+episode = 1700

@@ -1,0 +1,4 @@
+# Exact environment versions verified locally; use Python 3.12.
+torch==2.8.0
+numpy==2.2.5
+tokenizers==0.22.1

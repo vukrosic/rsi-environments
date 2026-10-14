@@ -1,0 +1,33 @@
+[build-system]
+requires = []
+build-backend = "package_build"
+backend-path = ["."]
+
+[project]
+name = "vuk-rsi-inference"
+version = "0.2.0"
+description = "Versioned local inference optimization environment for SmolLM2-135M"
+readme = "PACKAGING.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "torch==2.8.0",
+  "transformers==5.10.2",
+  "huggingface-hub==1.18.0",
+  "safetensors==0.6.2",
+  "tokenizers==0.22.1",
+  "numpy==2.2.5",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: MacOS X",
+  "Operating System :: MacOS",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.scripts]
+rsi-inference = "inference_env.cli:main"
+
+[tool.vuk-rsi-inference]
+platform-support = "macOS CPU or Apple MPS only"
+weights-policy = "Model weights are fetched separately from the pinned Hugging Face revision."

@@ -1,0 +1,59 @@
+{
+  "release": "v0.1.0-alpha.1",
+  "date": "2026-10-14",
+  "python": "3.12.8",
+  "torch": "2.8.0",
+  "numpy": "2.2.5",
+  "device": "CPU on Apple Silicon",
+  "checks": {
+    "shared_tests": {
+      "passed": 14
+    },
+    "inference_tests": {
+      "passed": 51,
+      "subtests": 10
+    },
+    "training_tests": {
+      "passed": 84,
+      "subtests": 36
+    },
+    "kernel_pre_guard_tests": {
+      "passed": 123
+    },
+    "verifiers_adapter_tests": {
+      "passed": 26,
+      "framework_version": "0.4.0"
+    },
+    "kernel_cli_smoke": {
+      "status": "ok",
+      "correctness_passed": true,
+      "eligible_for_rl": false
+    },
+    "verifiers_kernel_smoke": {
+      "framework_calls": 2,
+      "terminated": true,
+      "eligible_for_rl": false,
+      "policy": "scripted starter provider"
+    },
+    "kernel_final_guard_and_calibration_gate": {
+      "passed": 4,
+      "profile": "reduced CPU correctness fixture with simulated idle host for calibration-policy regression"
+    },
+    "kernel_post_guard_broad_checks": {
+      "passed": 55,
+      "timed_out": 1,
+      "timeout_resolution": "Replaced large numerical fixture in calibration-gate test; corrected gate subsequently passed."
+    },
+    "source_compilation": {
+      "status": "passed"
+    }
+  },
+  "limitations": [
+    "One loaded concurrent inference cleanup test failed; isolated supervision tests and full inference rerun passed.",
+    "Fresh internet installation on a second machine has not been verified.",
+    "No calibrated GPU or standard speedup result."
+  ],
+  "outer_policy_weights_trained": false,
+  "learned_improvement_verified": false,
+  "recursive_improvement_verified": false
+}

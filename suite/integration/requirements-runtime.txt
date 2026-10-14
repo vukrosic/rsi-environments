@@ -1,0 +1,9 @@
+torch==2.8.0
+numpy==2.2.5
+transformers==5.10.2
+datasets==4.1.1
+accelerate==1.13.0
+safetensors==0.6.2
+huggingface-hub==1.18.0
+tokenizers==0.22.1
+pytest==9.0.3

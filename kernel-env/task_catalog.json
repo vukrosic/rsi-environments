@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "environment": "kernel",
+  "api": "kernel_env.KernelEnvironment",
+  "training_tasks": ["rmsnorm", "softmax", "swiglu", "cross_entropy"],
+  "held_out_evaluation_tasks": ["attention", "newton_schulz"],
+  "action_types": ["edit", "test", "submit"],
+  "profiles": ["smoke", "standard"],
+  "default_max_steps": 5,
+  "default_max_episode_seconds": 600,
+  "terminal_reward": "speedup/(1+speedup) if correct; 0 if invalid; null on infrastructure/runtime failure",
+  "training_framework_adapter": "owned by shared rsi/suite; no model updates in this environment"
+}

@@ -1,0 +1,45 @@
+{
+  "id": "HuggingFaceTB/SmolLM2-135M",
+  "revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+  "dtype": "float32",
+  "attention": "sdpa",
+  "license": "apache-2.0",
+  "files": {
+    "README.md": {
+      "bytes": 6340,
+      "sha256": "d1ba68cae64a89b6b434b11526e6e2271ee5ffd2c914ec35ed515f9d84c6085c"
+    },
+    "config.json": {
+      "bytes": 704,
+      "sha256": "1d556eab73b69c7f11f64c557a2f9c6f440bd4c6b89bb2584a6b498c92603843"
+    },
+    "generation_config.json": {
+      "bytes": 111,
+      "sha256": "2056c988e990b0d13670f63f2f3b87b3b6d07edaf7a3416998ba27dab2d8a059"
+    },
+    "merges.txt": {
+      "bytes": 466391,
+      "sha256": "0b54e8aa4e53d5383e2e4bc635a56b43f9647f7b13832d5d9ecd8f82dac4f510"
+    },
+    "model.safetensors": {
+      "bytes": 269060552,
+      "sha256": "80521b40281d6ce74e35c9282c22539e75aa0ac8578892b2a59955ef78d55da1"
+    },
+    "special_tokens_map.json": {
+      "bytes": 831,
+      "sha256": "e786b595b9a23148bf1630df78d9037a048ea671e48bfd3549a1e3c233742bb3"
+    },
+    "tokenizer.json": {
+      "bytes": 2104556,
+      "sha256": "9ca9acddb6525a194ec8ac7a87f24fbba7232a9a15ffa1af0c1224fcd888e47c"
+    },
+    "tokenizer_config.json": {
+      "bytes": 3658,
+      "sha256": "4bb9af56a342753d39374f4016a16574cab299fe088e896f425ce3c433f61424"
+    },
+    "vocab.json": {
+      "bytes": 800662,
+      "sha256": "82b84012e3add4d01d12ba14442026e49b8cbbaead1f79ecf3d919784f82dc79"
+    }
+  }
+}

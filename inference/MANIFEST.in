@@ -1,0 +1,12 @@
+include pyproject.toml package_build.py PACKAGING.md README.md
+recursive-include inference_env *.py
+include assets.py cache_probes.py controller.py interface.py reference.py replay.py
+include rl_environment.py scorer.py shared_contract.py solution.py supervisor.py worker.py
+include assets-manifest.json model.json requirements-lock.txt requirements.txt tasks.json
+recursive-include shared *.py
+prune episodes
+prune evidence
+prune assets
+prune .venv
+prune __pycache__
+global-exclude *.pt *.safetensors *.log *.jsonl *.pyc

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "train": {
+    "task_id": "smollm2-inference-train-v1",
+    "themes": ["library", "river", "robot", "garden", "clock"],
+    "lengths": [32, 128, 512]
+  },
+  "heldout": {
+    "task_id": "smollm2-inference-heldout-v1",
+    "themes": ["volcano", "orchard", "bridge", "penguin", "moon"],
+    "lengths": [32, 128, 512]
+  }
+}
