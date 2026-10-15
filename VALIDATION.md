@@ -1,14 +1,22 @@
 # Validation and evidence scope
 
-## Current inference reward advisory — October 15, 2026
+## Inference API exception repair on main — October 15, 2026
 
-Static inspection of the published `inference/rl_environment.py` shows that
-action validation and evaluator execution share an exception handler. Evaluator
-`ValueError`, `TypeError`, `SyntaxError` or `UnicodeError` can therefore become
-an `invalid` result with a trainable zero reward, rather than an excluded
-infrastructure failure. Do not use this API's rewards for RL updates until the
-repair has passed independent review and execution checks. The working-source
-repair is not part of the published release. No new benchmark is claimed here.
+Current `main` separates action validation from evaluator execution. Exceptions
+escaping the evaluator end the episode with null reward and `trainable=False`;
+invalid submitted actions retain zero reward. Configuration is checked before
+episode creation. Seven mocked-evaluator checks passed in 4.159 seconds on the
+Linux server against the exact public dependency closure. Source and returned
+results were independently reviewed. Python runtime and test bytes match that
+execution; accompanying documentation now records the result.
+
+The check used no model forward pass, GPU execution or timing benchmark. Module
+origins were inspected in a separate fresh process under the admitted environment,
+not captured inside the test process. See the [sanitized verification record](inference/API-ERROR-VERIFICATION.json).
+Earlier release tags retain the defect that could misclassify an evaluator
+exception as invalid submitted code with trainable zero reward. Use current
+`main` for the repair; this does not qualify native inference speed rewards or
+add CUDA support.
 
 The alpha4 Training Improvement example uses a separate implementation and is
 unaffected. The kernel reward limitations described in [Features](FEATURES.md)

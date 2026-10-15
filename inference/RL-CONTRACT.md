@@ -41,6 +41,18 @@ the suite-normalized measured reward. Syntax/invalid actions consume the step
 budget; their terminal reward is zero. An infrastructure or timing failure ends
 the episode with null reward and `info.trainable=False`, so the trainer must
 exclude it from policy updates. Calling step after termination requires reset.
+Configuration is validated before an episode is created: device is exactly
+`cpu`, `mps` or `cuda`, and diagnostic is boolean. Exceptions escaping evaluator
+execution or source staging are terminal infrastructure `error` records with
+null reward and `info.trainable=False`. Genuine invalid actions or Python syntax
+retain invalid/zero labels. Native statuses and measured rewards are preserved.
+The `cuda` spelling is not a support claim: this public scorer still supports
+only CPU/MPS. This backport adds no CUDA implementation or verification.
+Seven mocked-evaluator checks against this public dependency closure passed on
+Linux on October 15, 2026. They verify API error classification, not model
+execution or timing rewards. Earlier release tags retain the defect; use current
+main for the repair. See API-ERROR-VERIFICATION.json for the verification scope.
+
 The response is a dictionary with `observation`, `reward`, `terminated`,
 `truncated`, and `info`; no Gym/Verifiers dependency is imposed here.
 

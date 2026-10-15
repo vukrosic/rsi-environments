@@ -1,5 +1,17 @@
 # Changelog
 
+## Main — October 15, 2026, evaluator exception classification
+
+- Reject invalid device/diagnostic configuration before episode creation.
+- Separate action validation from evaluator/source-staging exceptions. Escaping
+  evaluator errors terminate with null reward and are excluded from RL updates;
+  genuine invalid submissions retain zero reward.
+- Seven mocked-evaluator regressions passed on Linux in 4.159 seconds against
+  the exact public dependency closure, with independent source/result review.
+  Runtime and test bytes match that execution; documentation records the result.
+  Earlier release tags retain the defect. No GPU, model or timing qualification
+  follows from these API checks. See API-ERROR-VERIFICATION.json.
+
 ## 0.2.3 — October 14, 2026, worker failure attribution
 
 - Exclude worker dependency/asset/model/provider/device/serialization failures with

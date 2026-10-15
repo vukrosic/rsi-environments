@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-15",
+  "scope": "Inference Python API exception classification; mocked evaluator only",
+  "tests_passed": 7,
+  "elapsed_seconds": 4.1586930700577796,
+  "independent_source_and_result_review": true,
+  "tested_code": {
+    "inference/rl_environment.py": {
+      "bytes": 7982,
+      "sha256": "a7e95ec97224a1f48cf1a39afc9413dead838884d4fd963547d0ef6a184a79ee"
+    },
+    "inference/scorer.py": {
+      "bytes": 31729,
+      "sha256": "12e3882cc1e32d9be815ebe1a87f0bc8d64719eb299bbd3504929fee2330b072"
+    },
+    "inference/assets.py": {
+      "bytes": 2652,
+      "sha256": "62b23a3d12a1c09dc725f3f124365e2ca86cac1d98299fc7d9aa26e95be3cf53"
+    },
+    "inference/cache_probes.py": {
+      "bytes": 2644,
+      "sha256": "2c46335ebceb1bfd32bdd762d6343d34018d0bfbcafc36e69b49d3ddec9da36e"
+    },
+    "inference/shared_contract.py": {
+      "bytes": 1960,
+      "sha256": "ff0e6f9d20175f63b8fc2bec88c67458745066e2d464c5e566b344366d1a9e7e"
+    },
+    "inference/shared/__init__.py": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inference/shared/records.py": {
+      "bytes": 4188,
+      "sha256": "2034bf21cb07b41ba1332c26c3704fb83e08ef0781b2ea514159fc16c4adea2b"
+    },
+    "inference/shared/resources.py": {
+      "bytes": 3620,
+      "sha256": "6406ebd44076feaa18bc6039497479cca113d6b5691c4dd4c4d8b7cb788d3e47"
+    },
+    "inference/tasks.json": {
+      "bytes": 340,
+      "sha256": "72881736a4fdddc1857f1af84dd9431e1cc157fe73f1eacbdca9e832029f5361"
+    },
+    "inference/model.json": {
+      "bytes": 171,
+      "sha256": "7d047ac9fe9c8eafc526d7bfe994b2d43145cf14f9840a9b2ce510b77dd64746"
+    },
+    "inference/solution.py": {
+      "bytes": 611,
+      "sha256": "c917ab12f2a747496b03358103d9f6a40f8782a4968f21ecd9a587edfa81787c"
+    },
+    "inference/TASK.md": {
+      "bytes": 5995,
+      "sha256": "d87fed22eb095d22614e3ba9152621565e425e9a4f62fe74e08f72e262b7b2e5"
+    },
+    "inference/DESIGN.md": {
+      "bytes": 8462,
+      "sha256": "2a5ba7fc4cb5396cfe71198abc9b942db1f66700c0717d0c598fba963823de4f"
+    },
+    "inference/tests/test_rl_infrastructure_attribution.py": {
+      "bytes": 6340,
+      "sha256": "ac1aa2aa699585ee81f162193ddb6dd95ab9a0537728d28bfdc9f3c7231f133b"
+    },
+    "suite/__init__.py": {
+      "bytes": 85,
+      "sha256": "47634269f2734ae9bd976090f5a3b04fa435854a017fe52f2539e9108cb54822"
+    },
+    "suite/records.py": {
+      "bytes": 4188,
+      "sha256": "2034bf21cb07b41ba1332c26c3704fb83e08ef0781b2ea514159fc16c4adea2b"
+    },
+    "suite/resources.py": {
+      "bytes": 3620,
+      "sha256": "6406ebd44076feaa18bc6039497479cca113d6b5691c4dd4c4d8b7cb788d3e47"
+    },
+    "inference/controller.py": {
+      "bytes": 508,
+      "sha256": "e67d4bfa7a5597903f7a6a3a5c5a2c49ab05d33bd07a4ff04bcc4d9e0b67081c"
+    },
+    "inference/supervisor.py": {
+      "bytes": 10889,
+      "sha256": "2ba0966bb1f08af9ff5acdb01f13a0fd79fde760653b32b62030378ebfee6581"
+    }
+  },
+  "documentation_changes_after_execution": [
+    "README.md",
+    "VALIDATION.md",
+    "inference/CHANGELOG.md",
+    "inference/RL-CONTRACT.md"
+  ],
+  "observed": {
+    "invalid_configuration_rejected_before_episode": true,
+    "escaping_evaluator_errors_terminal_null_and_excluded": true,
+    "invalid_action_zero_preserved": true,
+    "native_statuses_and_intermediate_feedback_preserved": true,
+    "model_forward_executed": false,
+    "gpu_executed": false,
+    "timing_reward_qualified": false,
+    "module_origins": "Separate fresh process under the admitted source and environment; not captured inside test process"
+  },
+  "reproduce": "cd inference && python -m unittest discover -s tests -p test_rl_infrastructure_attribution.py -v",
+  "release_scope": "Repair on main; earlier release tags retain the defect. No CUDA implementation added."
+}

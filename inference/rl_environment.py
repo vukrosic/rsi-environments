@@ -18,6 +18,10 @@ class CodingAgentEnvironment:
     def __init__(self, root, *, device='cpu', max_steps=3, diagnostic=False):
         if not isinstance(max_steps, int) or isinstance(max_steps, bool) or not 1 <= max_steps <= 10:
             raise ValueError('max_steps must be in [1,10]')
+        if type(device) is not str or device not in ('cpu', 'mps', 'cuda'):
+            raise ValueError('device must be cpu, mps or cuda')
+        if type(diagnostic) is not bool:
+            raise ValueError('diagnostic must be boolean')
         self.root = Path(root).resolve()
         self.device = device
         self.max_steps = max_steps
@@ -99,14 +103,6 @@ class CodingAgentEnvironment:
                 raise ValueError('source must be a string of at most 65536 bytes')
             (self.episode / f'action-{self.used:02d}.py').write_text(code)
             ast.parse(code)
-            self.code = code
-            self.source.write_text(code)
-            raw = evaluate(self.source, self.episode, 'final' if terminal else 'development',
-                           self.device, self.diagnostic, partition=self.split)
-            record = raw['record']
-            # Infrastructure stops this episode and is excluded from weight updates.
-            if record['status'] in ('blocked','error'):
-                terminal = True
         except (ValueError, SyntaxError, TypeError, UnicodeError) as exc:
             error = f'{type(exc).__name__}: {exc}'
             record = make_record(environment='inference', task=self.spec['task_id'],
@@ -114,6 +110,28 @@ class CodingAgentEnvironment:
                 metrics={'error':error, 'correctness_pass':False, 'model_executed':False},
                 provenance={'split':self.split, 'seed':self.seed,
                     'episode_dir':str(self.episode), 'stage':'action_validation'})
+        else:
+            # Only action validation can produce the invalid/zero label above.
+            # A handled native candidate failure already arrives as an invalid
+            # record. An exception escaping the evaluator is infrastructure,
+            # even when its Python type is ValueError/TypeError/SyntaxError.
+            try:
+                self.code = code
+                self.source.write_text(code)
+                raw = evaluate(self.source, self.episode, 'final' if terminal else 'development',
+                               self.device, self.diagnostic, partition=self.split)
+                record = raw['record']
+                if record['status'] in ('blocked','error'):
+                    terminal = True
+            except Exception as exc:
+                error = f'{type(exc).__name__}: {exc}'
+                record = make_record(environment='inference', task=self.spec['task_id'],
+                    profile='standard', status='error', reward=None,
+                    metrics={'error':error, 'correctness_pass':None,
+                        'timing_valid':False, 'model_executed':None},
+                    provenance={'split':self.split, 'seed':self.seed,
+                        'episode_dir':str(self.episode), 'stage':'evaluation'})
+                terminal = True
         self.done = terminal
         self._save_state()
         status = record['status'] if record else 'invalid'
