@@ -32,6 +32,8 @@ See [Features](FEATURES.md) for the development status and [VALIDATION.md](VALID
 |---|---|
 | [Corrected NVIDIA kernel benchmark](kernel-timer/) | Library baselines and matched timing; 16 known fakes scored no gain on RTX A2000. The first 36-step GRPO pilot showed no measured improvement. |
 
+The standalone v3 benchmark and selected GPU examples report development measurements; their speedups are not qualified for RL updates.
+
 [Triton cross-entropy example](examples/gpu-cross-entropy/): exact submitted code,
 workload and recorded result. One selected retime reported 2.231× the PyTorch
 library baseline's speed; the example explains its measurement and provenance limits.
