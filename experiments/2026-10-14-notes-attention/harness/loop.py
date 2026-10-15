@@ -4,12 +4,14 @@ queue, and its final solution.py is scored on held-out text that its own runs ne
   python loop.py start --ws W plain no-numbers paper  make the folders and launch the agents
   python loop.py tick --ws W --for 540                run queued trainings one at a time, flag rule breaks, print status
   python loop.py collect --ws W --out batch2          copy each agent's work into the repository"""
-import argparse, difflib, json, os, re, shutil, subprocess, time
+import argparse, difflib, json, os, re, shutil, subprocess, sys, time
 from pathlib import Path
 
 here = Path(__file__).resolve().parent
 rsi = here.parent
-PY = "~/miniconda3/bin/python3"
+PY = sys.executable
+USER = str(Path.home())
+PYENV = str(Path(sys.executable).resolve().parents[1])  # the Python install the agents may read
 RUNS = 3
 AGENT_SLICE, SCORE_SLICE = 4000, 0  # first held-out sequence: 4000-5919 for the agents' runs, 0-1919 for the score
 
@@ -57,12 +59,12 @@ Your final solution.py is scored on different held-out text with the same 500 st
 
 SANDBOX = """(version 1)
 (allow default)
-(deny file-read-data file-write* (subpath "~"))
+(deny file-read-data file-write* (subpath "{user}"))
 (deny file-read-data file-write* (subpath "/private/tmp"))
-(allow file-read-data (subpath "~/miniconda3") (subpath "~/.nvm"))
+(allow file-read-data (subpath "{pyenv}") (subpath "{user}/.nvm"))
 (allow file-read-data file-write* (subpath "{task}") (subpath "{home}"))
 """
-ALLOWED = ("~/miniconda3", "~/.nvm", "/bin", "/usr", "/dev", "/opt/homebrew", "/System")
+ALLOWED = (PYENV, USER + "/.nvm", "/bin", "/usr", "/dev", "/opt/homebrew", "/System")
 
 
 def alive(pid):
@@ -111,7 +113,7 @@ def start(ws, ids):
         (home / "config.toml").write_text("\n".join(conf) + "\n\n[features]\nmemories = false\n")
         shutil.copy(Path.home() / ".codex/auth.json", home / "auth.json")
         os.chmod(home / "auth.json", 0o600)
-        (root / "sandbox.sb").write_text(SANDBOX.format(task=task, home=home))
+        (root / "sandbox.sb").write_text(SANDBOX.format(task=task, home=home, user=USER, pyenv=PYENV))
         prompt = TASK.format(runs=RUNS, py=PY, secs=round(base["train_secs"]), max_secs=round(2 * base["train_secs"]),
                              loss=f'{START_LOSS.get(i, base["val_loss"]):.3f}', prompt=PROMPTS[i])
         (root / "prompt.txt").write_text(prompt)
