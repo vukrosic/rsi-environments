@@ -169,3 +169,9 @@ TASKS = {
     "int4_matmul": (int4_matmul, lambda: (r(32, 4096).half(), torch.randint(0, 256, (4096, 2048), dtype=torch.uint8, device=dev),
                                           (0.02 * r(4096, 32).abs() + 0.001).half()), 5e-3),
 }
+
+# Optional per-task checkers, for outputs a plain relative error can't judge (packed or quantized results).
+# CHECK[name](got, inputs, want) -> a relative error compared with the task's tolerance; got is the kernel's output on
+# the reference's device, in the reference's dtype and shape, inputs is the tuple make() returned and want is ref(*inputs).
+# A task with a checker keeps its inputs on the device during the timed windows, so count them in its memory.
+CHECK = {}

@@ -28,7 +28,8 @@ import torch
 import tasks
 
 SETS = 4
-TIMER = "v2"  # in every verdict. v2 (2026-10-15 14:44 UTC): library baselines, timed in a second child process
+TIMER = "v3"  # in every verdict. v2 (2026-10-15 14:44 UTC): library baselines, timed in a second child process.
+# v3 (2026-10-15 22:20 UTC): one ping floor for both sides; a non-positive time is an infrastructure failure, not clamped
 # the kernel process is frozen between trials; a process it starts in a new session would not be, so starting one is
 # not allowed (a fork in the same session is frozen with it)
 ESCAPE = r"\b(os\.(fork\w*|setsid|setpgid|system|popen|spawn\w*|posix_spawn\w*|exec\w*)|pty|subprocess|multiprocessing|ctypes|cffi)\b"
@@ -171,9 +172,18 @@ class Outputs:
             shutil.rmtree(self.dir, ignore_errors=True)
 
 
-def slots(buf, shape):
-    n = int(np.prod(shape, dtype=np.int64)) * 4
-    return [torch.from_numpy(np.ndarray(shape, dtype=np.float32, buffer=buf, offset=i * n)) for i in range(SETS)]
+# output dtypes a task's reference may return: numpy storage, and the torch view of it (numpy has no bfloat16)
+STORE = {"torch.float32": (np.float32, None), "torch.float16": (np.float16, None),
+         "torch.bfloat16": (np.uint16, torch.bfloat16), "torch.uint8": (np.uint8, None)}
+
+
+def slots(buf, shape, dtype="torch.float32"):
+    if dtype not in STORE:
+        raise TypeError(f"output dtype {dtype} is not supported; one of {sorted(STORE)}")
+    npd, view = STORE[dtype]
+    n = int(np.prod(shape, dtype=np.int64)) * np.dtype(npd).itemsize
+    ts = [torch.from_numpy(np.ndarray(shape, dtype=npd, buffer=buf, offset=i * n)) for i in range(SETS)]
+    return [t.view(view) for t in ts] if view else ts
 
 
 def weights(shape, device, seed):
@@ -194,8 +204,10 @@ PARTS = 1 << 16
 
 
 def prints(ys, r):
-    """The fingerprints: sum(y * r) for each output."""
+    """The fingerprints: sum(y * r) for each output. Outputs of fp16, bf16 or uint8 are summed as float32, which holds
+    each of their values exactly."""
     global _dot
+    ys = [y.float() for y in ys]
     if r.device.type == "cuda":
         return torch.stack([torch.dot(y.contiguous().reshape(-1), r) for y in ys]).tolist()
     if _dot is None:
@@ -219,13 +231,17 @@ def child(name, path, out_name, shape, kind, rseed):
     os.dup2(2, 1)  # the kernel's prints go to stderr, not into the protocol
     _, make, _ = tasks.TASKS[name]
     keep, buf = Outputs.open(out_name)  # kept referenced: collecting it unmaps the outputs
-    out = slots(buf, shape)
+    out = slots(buf, shape, dtype)
     r = weights(shape, device, int(rseed))
     import importlib.util
     spec = importlib.util.spec_from_file_location("solution", path)
     mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    kernel = mod.kernel
+    try:
+        spec.loader.exec_module(mod)
+        kernel = mod.kernel
+    except BaseException as e:  # the reason goes into the verdict, so a trainer can read why
+        proto.write("error " + json.dumps(f"{type(e).__name__}: {e}"[:300]) + "\n")
+        return
     proto.write("ready\n")
     ys = []
     while line := sys.stdin.readline():
@@ -276,14 +292,16 @@ def stop(p):
     p.wait()
 
 
-def fail(name, msg, p=None, stage="run"):
+def fail(name, msg, p=None, stage="run", fault=None):
     """stage "source": the scan rejected the kernel, nothing ran (candidate's fault, no isolation applies).
     stage "setup": the bench could not build its jail; the kernel never ran (infrastructure, not the candidate's zero).
-    stage "run": the kernel ran under ISOLATION and failed a check (candidate's fault)."""
+    stage "run": the kernel ran under ISOLATION and failed a check (candidate's fault), or the timing failed
+    (fault "infrastructure": no verdict, retry)."""
     if p:
         stop(p)
-    print(f"{name}: WRONG, {msg} -> score 0")
-    print(json.dumps({"ok": False, "why": msg, "stage": stage, "fault": "infrastructure" if stage == "setup" else "candidate",
+    fault = fault or ("infrastructure" if stage == "setup" else "candidate")
+    print(f"{name}: " + (f"WRONG, {msg} -> score 0" if fault == "candidate" else f"NO VERDICT, {msg} -> retry"))
+    print(json.dumps({"ok": False, "why": msg, "stage": stage, "fault": fault,
                       "isolation": ISOLATION if stage == "run" else "none", "timer": TIMER}))
     sys.exit(1)
 
@@ -300,6 +318,7 @@ def main():
                         "or the plain reference. Correctness is always checked against the reference.")
     a = a.parse_args()
     ref, make, tol = tasks.TASKS[a.name]
+    check = getattr(tasks, "CHECK", {}).get(a.name)
     base = tasks.BASELINE.get(a.name, ref) if a.baseline == "library" else ref
     baseline = "library" if base is not ref else "reference"
     perf = time.perf_counter
@@ -328,7 +347,7 @@ def main():
     shm = Outputs(max(1, int(np.prod(shape, dtype=np.int64)) * 4 * SETS), jail)
     p, pb, stage, basedir = None, None, None, None
     try:
-        mine = slots(shm.buf, shape)
+        mine = slots(shm.buf, shape, json.loads(kind)[0])
         here, path, env, pre = Path(__file__).resolve().parent, Path(a.path).resolve(), dict(os.environ), None
         if jail:
             # the kernel user cannot read root's checkout: bench, tasks and the kernel's folder go to a readable copy
@@ -395,8 +414,10 @@ def main():
             return line[len(want):].strip(), t
 
         for proc, frz, who in ((pb, freeze_b, "baseline"), (p, freeze, "kernel.py")):
-            if not select.select([proc.stdout], [], [], 600)[0] or proc.stdout.readline().strip() != "ready":
-                fail(a.name, f"{who} did not import", p, stage="setup" if proc is pb else "run")
+            line = proc.stdout.readline().strip() if select.select([proc.stdout], [], [], 600)[0] else "timeout"
+            if line != "ready":
+                why = ": " + json.loads(line[6:]) if line.startswith("error ") else " (no answer in 600 s)" if line == "timeout" else ""
+                fail(a.name, f"{who} did not import{why}", p, stage="setup" if proc is pb else "run")
             frz(signal.SIGSTOP)
 
         worst, times = 0.0, []
@@ -414,7 +435,8 @@ def main():
                 t = perf()
                 prints(want, rw)
                 t_print = perf() - t
-                sets = None
+                if check is None:  # a task checker reads the inputs too; only then are they kept
+                    sets = None
                 torch.cuda.empty_cache() if torch.cuda.is_available() else None  # the children need the memory
 
             def window(proc=None, frz=None):
@@ -439,12 +461,16 @@ def main():
             for f_sent, f_got, n in zip(json.loads(sent), got, size):
                 if not abs(f_sent - f_got) <= 1e-3 * n:  # float32 sums in another order differ by ~1e-5 of n
                     fail(a.name, f"the output copied after the clock stopped is not the one fingerprinted inside it (trial {trial})", p)
-            for g, w in zip(first, want):
-                w = w.float().cpu()
-                err = ((g - w).abs().max() / w.abs().max().clamp_min(1e-6)).item()
+            for g, w, x, b in zip(first, want, sets or [None] * SETS, back):
+                if check:  # the task's own checker, e.g. unpack and dequantize a packed output
+                    err = float(check(b.reshape(w.shape).to(w.dtype), x, w))
+                else:
+                    g, w = g.float(), w.float().cpu()
+                    err = ((g - w).abs().max() / w.abs().max().clamp_min(1e-6)).item()
                 if not err <= tol:
                     fail(a.name, f"relative error {err:.2e} in trial {trial}, allowed {tol:.0e}", p)
                 worst = max(worst, err)
+            sets = None
             if trial >= 3:
                 times.append((t_ref, t_kernel, t_make, t_print, t_ping, t_ping_b))
                 if os.environ.get("BENCH_DEBUG"):
@@ -463,8 +489,14 @@ def main():
     # other work on the machine only adds time, so each part's fastest trial is its true cost; a kernel cannot fake a
     # fast trial, since every trial has new inputs and the fingerprint needs the whole output
     t_ref, t_kernel, t_make, t_print, t_ping, t_ping_b = (min(c) for c in zip(*times))
-    rm = max(t_ref - t_make - t_print - t_ping_b, 1e-6) / SETS * 1000
-    km = max(t_kernel - t_make - t_print - t_ping, 1e-6) / SETS * 1000
+    # one ping floor for both sides: a kernel can slow its own pings (it owns its process's stdin) but not the
+    # baseline's, and subtracting its own ping read a kernel 1 ms per window faster than it ran
+    t_ping = min(t_ping, t_ping_b)
+    rm = (t_ref - t_make - t_print - t_ping) / SETS * 1000
+    km = (t_kernel - t_make - t_print - t_ping) / SETS * 1000
+    if not (rm > 0 and km > 0):  # never clamped: a clamp to ~0 read as a huge speedup
+        fail(a.name, f"non-positive time (reference {rm:.4f} ms, kernel {km:.4f} ms): the bench overhead exceeds the window",
+             stage="run", fault="infrastructure")
     print(f"{a.name}: correct (relative error {worst:.1e}). reference {rm:.2f} ms, kernel {km:.2f} ms, speedup {rm / km:.2f}x")
     print(json.dumps({"ok": True, "ref_ms": round(rm, 3), "kernel_ms": round(km, 3), "speedup": round(rm / km, 3), "err": worst,
                       "stage": "run", "fault": None, "isolation": ISOLATION, "baseline": baseline, "timer": TIMER}))
