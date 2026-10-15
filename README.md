@@ -20,7 +20,7 @@ The model trained or evaluated inside a task is separate from the LLM your RL tr
 
 ## Release status
 
-The published alpha includes the three environment APIs, a shared Verifiers adapter and a bounded Apple GPU training check. NVIDIA training, inference and compression have run in development; portable setup and GPU trainer integration are still being verified. Kernel timing failed the stability threshold on the tested NVIDIA host.
+The published alpha includes the three environment APIs, a shared Verifiers adapter and a bounded Apple GPU training check. NVIDIA training, inference and compression have run in development; portable setup and GPU trainer integration are still being verified. Kernel speed rewards have unresolved timing-boundary and predictable-input issues; do not use them for RL updates until fixed. Standard CUDA timing also failed the stability threshold on the tested NVIDIA host.
 
 See [Features](FEATURES.md) for the development status and [VALIDATION.md](VALIDATION.md) for checks of the published code. GPU execution alone does not establish valid speed rewards or LLM learning. We have not demonstrated RL weight updates to an LLM or recursive self-improvement.
 

@@ -1,5 +1,7 @@
 # Kernel optimization RL environment — local development 0.1.4
 
+> **Timing reward issue:** Current v1 timing can omit deferred output work, and evaluation inputs are predictable. Treat kernel speed rewards as unverified for RL training until these issues are fixed. See [current status](../FEATURES.md).
+
 An environment for an external RL trainer to teach a coding agent to optimize
 six float32 training kernels. The policy produces Python code, the environment
 executes a frozen snapshot and returns a correctness-gated terminal reward, and

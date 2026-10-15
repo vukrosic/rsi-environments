@@ -12,7 +12,7 @@ Updated October 15, 2026. The published version is [v0.1.0-alpha.3](https://gith
 |---|---|---|---|
 | [Inference optimization](inference/README.md) | Model inference code | Latency, after output correctness checks | Published API. NVIDIA comparisons ran in development; the tested change had no verified speedup. Portable setup and terminal reward checks are unfinished. |
 | [Training improvement](training-env/README.md) | Model, optimizer or training-step code | Prediction loss within the training budget | Published API and bounded Apple GPU check. NVIDIA training and a recipe comparison ran in development. The tested recipe increased loss. Portable reproduction is unfinished. |
-| [Kernel optimization](kernel-env/README.md) | Numerical operations used in neural networks | Runtime, after numerical accuracy checks | Published tasks and API. NVIDIA diagnostics ran, but timing exceeded the stability threshold. Standard CUDA speed rewards remain unavailable on the tested host. |
+| [Kernel optimization](kernel-env/README.md) | Numerical operations used in neural networks | Runtime, after numerical accuracy checks | Published tasks and API. Current v1 timing has unresolved deferred-output and predictable-input issues; speed rewards are unverified for RL. NVIDIA diagnostics ran, but timing also exceeded the stability threshold. |
 | Model compression | Weight representation or model execution | Runtime allocation, subject to a fixed quality limit | Not published yet. Apple and NVIDIA measurements ran; one NVIDIA candidate became the next incumbent. Independent reference setup and trainer integration are unfinished. |
 
 ## Connecting a trainer

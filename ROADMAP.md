@@ -4,6 +4,7 @@ Updated October 15, 2026. See [Features](FEATURES.md) for what is published and 
 
 ## Next release: GPU setup and reproduction
 
+- [ ] Fix and verify the kernel timing boundary and predictable evaluation inputs before enabling speed rewards for RL.
 - [ ] Run NVIDIA setup from a clean checkout with documented dependencies and assets.
 - [ ] Include every required runtime file in the public package.
 - [ ] Verify inference packet creation and terminal rewards through its Python API.
