@@ -4,7 +4,7 @@
 
 An LLM submits code. The environment executes it, measures the result and returns feedback and a reward. You connect those rewards to your own RL trainer.
 
-[Features and status](FEATURES.md) · [Roadmap](ROADMAP.md) · [Releases](https://github.com/vukrosic/rsi-environments/releases)
+[Start here](docs/GETTING-STARTED.md) · [Features and status](FEATURES.md) · [Roadmap](ROADMAP.md) · [Releases](https://github.com/vukrosic/rsi-environments/releases)
 
 ## Environments
 

@@ -28,6 +28,7 @@ recorded NVIDIA execution evidence.
 
 ## Other environment releases
 
+- [x] Publish the standalone NVIDIA kernel benchmark with library baselines and RTX A2000 control results. This is separate from the older kernel environment API and its timing advisories.
 - [x] Fix inference API error classification on main and verify the matching public source with seven mocked-evaluator checks. Earlier release tags retain the defect; native timing qualification remains separate.
 - [ ] Publish the reviewed kernel timing/input repairs and qualify speed rewards on NVIDIA under unchanged stability requirements.
 - [ ] Publish compression with a reference-generation path that does not require Apple hardware.
@@ -38,6 +39,7 @@ Kernel timing failed the stability threshold on the current NVIDIA host. Further
 
 ## Trainer integration and configuration
 
+- [x] Publish a [starting guide](docs/GETTING-STARTED.md) that separates runnable examples, tested runtimes and trainer responsibilities.
 - [ ] Document one rollout-to-reward example with a user-supplied LLM and trainer.
 - [ ] Check GPU terminal rewards through the optional Verifiers adapter, including failure exclusions.
 - [ ] Allow task models and datasets to be configured while preserving independent evaluation and budgets.

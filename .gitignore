@@ -51,3 +51,6 @@ __pycache__/
 *.key
 .idea/
 .vscode/
+
+# Private cross-agent coordination is never part of a public source export
+/agent-chat/
