@@ -2,6 +2,8 @@
 
 **Reinforcement-learning environments for LLM agents that improve machine-learning systems.**
 
+Explore the [features and current status](FEATURES.md) and the [development roadmap](ROADMAP.md). These distinguish the published alpha from work still being verified for the next GPU release.
+
 **Apple GPU functionally verified:** one real TinyStories inner-GPT smoke completed on Apple MPS with 5,063,424 parameters. The fixed smoke protocol made 3 scheduled training calls (2 with positive learning rate), processed 96 training tokens and graded 64 development tokens. This verifies a bounded inner-model GPU execution path; it does not measure before/after learning gain, standard CUDA execution, or coding-agent RL.
 
 An agent writes code, runs an experiment, reads the result, and tries again. These environments turn that work into measurable feedback and rewards that an external RL trainer can use to improve the agent.
