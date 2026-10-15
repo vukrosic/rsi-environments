@@ -14,17 +14,16 @@ and [verification details](examples/TRAINING-CUDA-VERIFICATION.md). These checks
 establish task execution and scoring. They do not establish LLM learning or
 fresh dependency installation.
 
-## Next release: setup and a user-supplied LLM
+## Next release: portable setup and offline verification
 
-- [ ] Complete installation into a fresh isolated NVIDIA runtime, without private dependency overlays.
-- [ ] Verify one end-to-end callback example that accepts generated source and returns the native result to the caller's trainer.
-- [ ] Publish the tested setup recipe, callback source and their execution limits together.
+- [ ] Publish the portable Training Improvement bundle with its runtime source dependencies and prepared-data requirements.
+- [ ] Verify source loading on CPU, training on a supported GPU and installation in a fresh isolated NVIDIA runtime without private dependency overlays.
+- [ ] Publish an offline CLI that checks saved receipts and source hashes without rerunning training.
 
-The first fresh-install attempt stopped before runtime installation because the
-wheel verifier rejected vendored metadata inside a dependency. A cache-reusing
-repair is in development. The callback's focused software checks have passed;
-its actual native episode remains unverified. Neither result changes alpha4's
-recorded NVIDIA execution evidence.
+The bundle and offline CLI are prepared in source. Their new CPU checks, the
+CLI's check against saved receipts and the bundle's GPU run remain pending.
+Publish the tested setup recipe with those results; alpha4's existing runs do
+not verify this new bundle or a fresh installation.
 
 ## Other environment releases
 
@@ -37,14 +36,19 @@ recorded NVIDIA execution evidence.
 
 Kernel timing failed the stability threshold on the current NVIDIA host. Further speed-reward verification needs different measurement conditions; the threshold stays unchanged. A release will state which environments and devices passed.
 
-## Trainer integration and configuration
+## Easier research integration
 
 - [x] Publish a [starting guide](docs/GETTING-STARTED.md) that separates runnable examples, tested runtimes and trainer responsibilities.
-- [ ] Document one rollout-to-reward example with a user-supplied LLM and trainer.
+- [ ] Publish and CPU-check a direct `Episode` API that uses the caller's explicitly supplied, trusted configured store.
+- [ ] Verify a generated-source callback submission on GPU and document the native result returned to the caller's trainer.
 - [ ] Check GPU terminal rewards through the optional Verifiers adapter, including failure exclusions.
 - [ ] Allow task models and datasets to be configured while preserving independent evaluation and budgets.
 - [ ] Show workload, precision, memory metric, quality limit and budget before a run.
 - [ ] Provide machine-readable result summaries for experiment tracking.
+
+The direct-store binding is prepared in source; its CPU checks remain pending.
+The callback's software checks have passed, but its native GPU episode remains
+unverified.
 
 ## Competing against the best result
 
