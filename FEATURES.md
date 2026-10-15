@@ -10,7 +10,7 @@ Updated October 15, 2026. The latest release is [v0.1.0-alpha.4](https://github.
 
 | Environment | What the LLM changes | How it is scored | Current status |
 |---|---|---|---|
-| [Inference optimization](inference/README.md) | Model inference code | Latency, after output correctness checks | Published API has an error-classification bug: some evaluator failures become trainable zero rewards. Do not use these rewards for RL updates until the fix is verified. A development NVIDIA comparison had no verified speedup. |
+| [Inference optimization](inference/README.md) | Model inference code | Latency, after output correctness checks | Main fixes evaluator error classification; seven mocked API checks passed on Linux. Earlier tags retain the defect. Timing rewards remain unqualified; this repair adds no CUDA support. A development NVIDIA comparison had no verified speedup. |
 | [Training improvement](examples/training-cuda-alpha4/README.md) | Model, optimizer or training-step code | Prediction loss within the training budget | Alpha4 includes two verified 500-call NVIDIA runs, including a terminal native API reward. Saved-weight changes were audited in the example run. Fresh dependency installation remains unverified. |
 | [Kernel optimization](kernel-env/README.md) | Numerical operations used in neural networks | Runtime, after numerical accuracy checks | Published tasks and API. Current v1 timing has unresolved deferred-output and predictable-input issues; speed rewards are unverified for RL. NVIDIA diagnostics ran, but timing also exceeded the stability threshold. |
 | Model compression | Weight representation or model execution | Runtime allocation, subject to a fixed quality limit | Not published yet. Apple and NVIDIA measurements ran; one NVIDIA candidate became the next incumbent. Independent reference setup and trainer integration are unfinished. |
@@ -24,7 +24,7 @@ Updated October 15, 2026. The latest release is [v0.1.0-alpha.4](https://github.
 
 Training improvement returns `exp(-loss)` for valid terminal submissions. Other objectives have their own scoring rules. Failed infrastructure, unreliable timing, smoke checks and evaluation-only episodes must be excluded from policy updates.
 
-Start with the [alpha4 training example](examples/training-cuda-alpha4/README.md) and its [dated CUDA verification](examples/TRAINING-CUDA-VERIFICATION.md). The [Verifiers integration guide](suite/integration/README.md) covers earlier framework compatibility checks; the alpha4 CUDA run used the native API. Inference and kernel reward advisories above apply. We have not demonstrated RL weight updates to an LLM or recursive self-improvement.
+Start with the [alpha4 training example](examples/training-cuda-alpha4/README.md) and its [dated CUDA verification](examples/TRAINING-CUDA-VERIFICATION.md). The [Verifiers integration guide](suite/integration/README.md) covers earlier framework compatibility checks; the alpha4 CUDA run used the native API. The reward limitations above apply. Published examples do not include an outer LLM trainer or establish learning gains or recursive self-improvement.
 
 ## Execution and results
 

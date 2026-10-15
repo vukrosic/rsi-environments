@@ -1,10 +1,11 @@
 # Inference optimization environment
 
-**Reward advisory — October 15, 2026:** the published Python API can classify
-some evaluator failures as invalid submitted code and return a trainable zero
-reward. Do not use its rewards for RL updates until the fix is independently
-verified. See [the validation notice](../VALIDATION.md). The separate alpha4
-Training Improvement example is unaffected.
+**API fix on main — October 15, 2026:** exceptions escaping the evaluator now
+return null reward and are excluded from training. Seven mocked-evaluator checks
+passed on Linux; see [verification details](API-ERROR-VERIFICATION.json).
+Earlier release tags retain the error-classification defect. These checks do
+not qualify timing rewards or add CUDA support. The separate alpha4 Training
+Improvement example is unaffected.
 
 An LLM submits inference code, reads execution feedback, and receives a terminal
 measured reward. An external RL trainer updates the LLM's weights. The fixed

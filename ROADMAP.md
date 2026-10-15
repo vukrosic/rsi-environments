@@ -28,7 +28,7 @@ recorded NVIDIA execution evidence.
 
 ## Other environment releases
 
-- [ ] Fix inference API error classification and verify a matching public source update before lifting its reward advisory.
+- [x] Fix inference API error classification on main and verify the matching public source with seven mocked-evaluator checks. Earlier release tags retain the defect; native timing qualification remains separate.
 - [ ] Publish the reviewed kernel timing/input repairs and qualify speed rewards on NVIDIA under unchanged stability requirements.
 - [ ] Publish compression with a reference-generation path that does not require Apple hardware.
 - [ ] Verify compression's reference loader and CUDA registration.
