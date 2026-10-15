@@ -1,0 +1,76 @@
+{
+  "description": "Privacy projection of existing selected search and exact-source retime records; not a new measurement or unmodified server receipt.",
+  "kernel_file": "kernel.py",
+  "kernel_source_sha256": "dfe2e4293d1fac50c4097d6dd7003af2893eeec57ce95994c5a91cbba04fe47f",
+  "selected_retime": {
+    "ok": true,
+    "ref_ms": 3.117,
+    "kernel_ms": 0.804,
+    "speedup": 3.879,
+    "err": 0.0005202682223170996,
+    "stage": "run",
+    "fault": null,
+    "isolation": "uid",
+    "baseline": "library",
+    "timer": "v3",
+    "task": "attention",
+    "trials": 5
+  },
+  "search_peak_for_same_source": {
+    "ok": true,
+    "ref_ms": 3.147,
+    "kernel_ms": 0.794,
+    "speedup": 3.963,
+    "err": 0.000551471661310643,
+    "stage": "run",
+    "fault": null,
+    "isolation": "uid",
+    "baseline": "library",
+    "timer": "v3",
+    "task": "attention",
+    "trials": 5
+  },
+  "source_binding": {
+    "search_and_retime_source_bytes_equal": true,
+    "source_matches_both_recorded_submission_hashes": true,
+    "both_raw_receipt_filenames_match_their_recorded_submission_ids": true,
+    "retime_matches_completed_trajectory_summary": true,
+    "original_search_receipt_sha256": "d38c8b54130cdaa8e76095d3fc4afbd62f90e0c6a23428f3fffeafe89a95fa08",
+    "original_retime_receipt_sha256": "751a1a54f2fe1685277ca80079468e1b172db471b143474c5912bcac893b789e",
+    "original_search_source_hash_record_sha256": "fdc476d99faa5b7e2cf6cd502d44e17945f25a95b477c40050488998e6efe2f9",
+    "original_retime_source_hash_record_sha256": "fdc476d99faa5b7e2cf6cd502d44e17945f25a95b477c40050488998e6efe2f9",
+    "original_completed_trajectory_sha256": "f3de0b5e73ca5f91aecfe77a11fb42f1a71cb99638e534d7e0e809fb1aaf9b9b",
+    "scope": "Local file/hash and submission-name correspondence. No server attestation that these exact source bytes executed."
+  },
+  "trajectory": {
+    "resumed_task_switch_continuation": true,
+    "fresh_independent_baseline": false,
+    "candidate_attempts": 10,
+    "correct_candidates": 9,
+    "selected_retime_count": 1,
+    "learning_gap_transfer_or_promotion_claim": false
+  },
+  "reported_remote_source_sha256": null,
+  "reported_remote_runtime": null,
+  "receipt_bound_runtime_attested": false,
+  "server_source_digest_attested": false,
+  "hardware_identity_in_selected_receipt": null,
+  "exact_dependency_versions_in_selected_receipt": null,
+  "public_reproduction_reference": {
+    "repository": "https://github.com/vukrosic/rsi-environments",
+    "commit": "71c965cbb8cd618b17b92cbb1a548dbd49f32a11",
+    "file_sha256": {
+      "bench3.py": "6893e9e2073ed9ec4ddbd5aa23bdda7bba6f3e3e5271aa5361c50fe2a345d09e",
+      "tasks.py": "6db63107b1e2718b6d4405fcf4525c8218977885cf563592e7a22a9754c7a394",
+      "README.md": "f5a1ac89f7d2cf4a723c44e13d32a209ddc5a3b6d4ee695bba15d1e36c424225"
+    },
+    "scope": "Read-only public source reference for task, SDPA baseline and CLI; not an attested pin of the remote execution."
+  },
+  "removed_original_fields": [
+    "file",
+    "at",
+    "bench_s",
+    "job_id"
+  ],
+  "preparation_executed_kernel_or_benchmark": false
+}

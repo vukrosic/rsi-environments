@@ -36,6 +36,10 @@ See [Features](FEATURES.md) for the development status and [VALIDATION.md](VALID
 workload and recorded result. One selected retime reported 2.231× the PyTorch
 library baseline's speed; the example explains its measurement and provenance limits.
 
+[Causal attention example](examples/gpu-attention/): exact submitted code and a
+selected 3.879× retime against PyTorch SDPA. It uses float16 dot products with
+float32 inputs/output; its measured error passes the documented task tolerance.
+
 ## Training Improvement CUDA example
 
 An LLM submits training code. The environment runs the task model, independently
