@@ -1,0 +1,11 @@
+{"ok": false, "why": "crashed", "tries": 1, "job": "run1", "waited_secs": 0, "bench_secs": 1}
+{"ok": true, "ref_ms": 64.012, "kernel_ms": 15.383, "speedup": 4.161, "err": 2.047032761189951e-07, "tries": 1, "job": "run2", "waited_secs": 0, "bench_secs": 7}
+{"ok": true, "ref_ms": 67.146, "kernel_ms": 8.87, "speedup": 7.57, "err": 0.0006124044746613867, "tries": 1, "job": "run3", "waited_secs": 1, "bench_secs": 7}
+{"ok": true, "ref_ms": 68.072, "kernel_ms": 8.519, "speedup": 7.991, "err": 0.0006124044746613867, "tries": 1, "job": "run4", "waited_secs": 17, "bench_secs": 7}
+{"ok": true, "ref_ms": 67.534, "kernel_ms": 8.7, "speedup": 7.763, "err": 0.0006124044746613867, "tries": 1, "job": "run5", "waited_secs": 7, "bench_secs": 7}
+{"ok": true, "ref_ms": 68.288, "kernel_ms": 10.968, "speedup": 6.226, "err": 0.0008573392869876582, "tries": 1, "job": "run6", "waited_secs": 49, "bench_secs": 7}
+{"ok": true, "ref_ms": 73.55, "kernel_ms": 9.883, "speedup": 7.442, "err": 0.0006124044746613867, "tries": 1, "job": "run7", "waited_secs": 43, "bench_secs": 7}
+{"ok": true, "ref_ms": 68.194, "kernel_ms": 11.387, "speedup": 5.989, "err": 0.0006124044746613867, "tries": 1, "job": "run8", "waited_secs": 40, "bench_secs": 7}
+{"ok": true, "ref_ms": 70.767, "kernel_ms": 9.276, "speedup": 7.629, "err": 0.0006124044746613867, "tries": 2, "job": "run9", "waited_secs": 40, "bench_secs": 15}
+{"ok": true, "ref_ms": 66.952, "kernel_ms": 9.128, "speedup": 7.335, "err": 0.0006124044746613867, "tries": 1, "job": "run10", "waited_secs": 54, "bench_secs": 7}
+{"ok": true, "kernel_ms": 8.591, "ref_ms": 66.548, "all": [{"ok": true, "ref_ms": 67.165, "kernel_ms": 8.457, "speedup": 7.942, "err": 0.0005531274326344643, "tries": 1}, {"ok": true, "ref_ms": 66.008, "kernel_ms": 8.411, "speedup": 7.848, "err": 0.0006980415990180388, "tries": 1}, {"ok": true, "ref_ms": 65.959, "kernel_ms": 8.591, "speedup": 7.678, "err": 0.0005828082273732552, "tries": 1}, {"ok": true, "ref_ms": 66.548, "kernel_ms": 8.707, "speedup": 7.643, "err": 0.0005697226195760296, "tries": 1}, {"ok": true, "ref_ms": 67.114, "kernel_ms": 8.659, "speedup": 7.751, "err": 0.0005751430867885694, "tries": 1}], "job": "final", "waited_secs": 0, "bench_secs": 32}

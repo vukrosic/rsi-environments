@@ -1,0 +1,9 @@
+The workload is contiguous float32 causal attention: eight batches, eight heads, 1024 positions, 64 channels. Supplied baseline: 65.6 milliseconds. Time only through bench.py. Shared GPU load varies; small timing differences are uncertain.
+
+Compile a fused Metal shader once at import. Use 64 queries and 64 keys per tile, eight SIMD groups, 256 threads. Keep queries, float32 scores, half probabilities, and float32 output accumulators in registers. Explicitly generate unrolled matrix operations. Cooperatively stage separate half key and value buffers with four-element vector loads. Maintain stable float32 online softmax maxima and denominators. Skip future tiles; mask individual elements only on the diagonal tile. Matrix lanes own two adjacent columns; row reductions use exclusive-or shuffle offsets one and eight.
+
+This round used ten benchmarks. Times in milliseconds: full float32 accumulation, 3.74; sixteen-key half value sums with output columns processed separately, 3.90; base-two exponentials, 3.77; 32-key tiles, 3.82; 128-query tiles, 4.21; padded shared storage reused for keys and values, 4.02; separate padded storage with 32-key tiles, 3.86; interleaved sixteen-key half value sums, 3.66; sixteen-channel half dot-product sums, 3.97; repeat interleaved half value sums, 4.00.
+
+Final kernel retains full float32 accumulation: 3.74 milliseconds versus 66.70, speedup 17.82 times. Benchmark error was 0.00061. Twenty fresh checks passed, maximum error 0.000517 against 0.002. Half value variants had benchmark error 0.0012; short half dot products reached 0.0016.
+
+Earlier useful findings: built-in attention took approximately 17 milliseconds in float32 and 10.5–11.7 with half inputs. Unrolling register matrix loops and vector staging produced major improvements. Shared score buffers and unrolled larger tiles generally lost. Long half dot-product or output accumulation can exceed tolerance.

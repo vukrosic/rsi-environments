@@ -1,0 +1,9 @@
+The target is contiguous float32 causal attention: eight batches, eight heads, 1024 positions, and 64 features. The supplied baseline was 67.1 milliseconds. GPU sharing changes timings; compare absolute kernel times alongside speedups.
+
+The final kernel took 4.10 milliseconds against a 71.10 millisecond reference, giving 17.36 times speedup. Benchmark relative error was 0.00061, below 0.002. All ten submissions passed.
+
+Compile a fused Metal shader once. Use 64 queries and 64 keys per tile, with eight SIMD groups and 256 threads. Each SIMD group handles eight query rows. Keep queries, scores, probabilities, and partial outputs in registers. Use half matrix operands and probabilities, but float32 scores, output accumulation, running maxima, and denominators. Apply stable online softmax and skip future key tiles. Metal matrix rows span four lanes; exclusive-or shuffles of one and eight reduce each row. Explicitly unroll constant matrix loops. Stage inputs through four-element vector loads. Separate key and value buffers remove barriers, at a small measured benefit.
+
+This round measured, in milliseconds: shared scores and probabilities, 7.59; register matrices without explicit unrolling, 9.15; that version with 32 queries, 11.47; fully unrolled 64-by-64 tiles, 5.20; shared matrices with four-lane softmax, 7.87; unrolled 32-key tiles, 5.57; 128-key tiles, 5.54; vector staging, 4.13; reordered matrix operations, 5.41; separate value staging, 4.10.
+
+Earlier rounds found built-in attention around 17 milliseconds in float32 and 10.5–11.7 with half inputs. Their fastest fused variant reached 4.99 milliseconds. Preconverting inputs and larger query tiles generally regressed. Full half score or output accumulation can exceed tolerance; retain float32 accumulation. Vector staging improved this unrolled register implementation despite being slower in an earlier shared implementation.

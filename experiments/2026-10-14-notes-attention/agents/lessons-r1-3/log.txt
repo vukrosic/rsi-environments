@@ -1,0 +1,4058 @@
+Reading additional input from stdin...
+2026-10-14T12:39:35.011878Z ERROR codex_skills_extension::loader::host: failed to scan skill path file://~/.agents/skills: Operation not permitted (os error 1)
+OpenAI Codex v0.162.1
+--------
+workdir: <ws>/lessons-r1-3/task
+model: gpt-6.1-sol
+provider: openai
+approval: never
+sandbox: danger-full-access
+reasoning effort: high
+reasoning summaries: none
+session id: 01a13a6c-d54d-7011-ab77-2a68f04d2130
+--------
+user
+This folder holds one GPU kernel task on an Apple M4 Mac (PyTorch 2.8.0 on the GPU, device "mps").
+
+- kernel.py: kernel(q, k, v), causal attention. It is the only code file you may edit.
+- reference.py: the reference answer and the inputs it is timed on (batch 8, 8 heads, 1024 positions, head size 64, float32).
+- bench.py: times kernel.py against reference() on fresh inputs and prints the speedup. You may use it 10 times: ~/miniconda3/bin/python3 bench.py
+  A run usually returns in under a minute; give the command a timeout of at least 10 minutes. If it is cut off, ~/miniconda3/bin/python3 bench.py --wait gets the result.
+- check.py: checks kernel.py's answer without timing. Use it as often as you like: ~/miniconda3/bin/python3 check.py
+
+Rules:
+- kernel(q, k, v) keeps its name and arguments and returns a GPU tensor with the reference's shape, within the tolerance in reference.py.
+- Anything that runs on this Mac counts, for example a custom Metal shader through torch.mps.compile_shader.
+- kernel.py may not read any file.
+- Time only with bench.py; other jobs share this GPU.
+- Work only inside this folder. Do not read, list or search anything outside it.
+
+Unchanged, kernel.py runs in 67.6 ms (speedup 1.00x).
+
+Make kernel() as fast as you can. LESSONS.md in this folder holds notes from earlier agents who did this same task. Read it before your first bench run. Before you finish, rewrite LESSONS.md for the next agents, who start from the unchanged kernel.py: what made the kernel faster, what did not, and the times you measured. Keep what is still true from the notes you were given. At most 300 words, in words, no code.
+
+Your final kernel.py is timed again at the end on new inputs. When you are done, run check.py. End your reply with one line: EDIT: <one sentence saying what your final kernel.py does>
+codex
+I’ll read the kernel, reference, and prior notes, then test faster implementations within the ten-run benchmark limit.
+exec
+/bin/zsh -lc "pwd && rg --files -g '*'" in <ws>/lessons-r1-3/task
+ succeeded in 0ms:
+<ws>/lessons-r1-3/task
+reference.py
+LESSONS.md
+bench.py
+check.py
+kernel.py
+
+exec
+/bin/zsh -lc 'cat kernel.py reference.py bench.py check.py LESSONS.md' in <ws>/lessons-r1-3/task
+ succeeded in 0ms:
+"""Make kernel() faster. It must return the same values as reference() in reference.py."""
+import torch
+
+
+def kernel(q, k, v):
+    T = q.size(-2)
+    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+    e = (s - s.max(-1, keepdim=True).values).exp()
+    return (e / e.sum(-1, keepdim=True)) @ v
+"""The reference: causal attention in plain PyTorch, the inputs it is timed on, and the tolerance. Do not edit."""
+import torch
+
+TOL = 2e-3  # largest allowed |kernel - reference| / max |reference|
+
+
+def reference(q, k, v):
+    T = q.size(-2)
+    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+    e = (s - s.max(-1, keepdim=True).values).exp()
+    return (e / e.sum(-1, keepdim=True)) @ v
+
+
+def inputs():
+    """Timed inputs: batch 8, 8 heads, 1024 positions, head size 64, float32 on the GPU."""
+    return tuple(torch.randn(8, 8, 1024, 64, device="mps") for _ in range(3))
+"""Time kernel.py against the reference on the GPU and print the result. You have 10 runs.
+  python bench.py         submit kernel.py and wait for its result (usually under a minute)
+  python bench.py --wait  wait again for the last submitted run (if the first command was cut off)"""
+import os, shutil, sys, time
+from pathlib import Path
+
+LIMIT = 10
+here = Path(__file__).resolve().parent
+queue, results = here / "queue", here / "results"
+queue.mkdir(exist_ok=True)
+results.mkdir(exist_ok=True)
+sent = sorted(queue.glob("run*.py"), key=lambda p: int(p.stem[3:]))
+
+if "--wait" in sys.argv:
+    if not sent:
+        sys.exit("no run submitted yet")
+    n = len(sent)
+else:
+    if len(sent) >= LIMIT:
+        sys.exit(f"all {LIMIT} runs are used")
+    n = len(sent) + 1
+    tmp = queue / f".run{n}.tmp"
+    shutil.copy(here / "kernel.py", tmp)
+    os.rename(tmp, queue / f"run{n}.py")
+    print(f"run {n} of {LIMIT} submitted.", flush=True)
+
+out = results / f"run{n}.txt"
+while not out.exists():
+    time.sleep(1)
+print(out.read_text().strip())
+"""Check that kernel() gives the reference's answer on one set of inputs. No timing. Use it as often as you like."""
+import torch
+from kernel import kernel
+from reference import TOL, inputs, reference
+
+with torch.no_grad():
+    x = inputs()
+    want, got = reference(*x), kernel(*x)
+    err = (got.float() - want).abs().max().item() / want.abs().max().item()
+print(f"{'OK' if got.shape == want.shape and err <= TOL else 'WRONG'}: relative error {err:.2e} (allowed {TOL:.0e})")
+No notes yet: you are the first agents on this task.
+
+exec
+/bin/zsh -lc "~/miniconda3/bin/python3 -c 'import torch; print(torch.__version__); print(torch.mps.compile_shader.__doc__); print(torch.nn.functional.scaled_dot_product_attention.__doc__)'" in <ws>/lessons-r1-3/task
+ succeeded in 671ms:
+2.8.0
+Compiles compute shader from source and allows one to invoke kernels
+    defined there from the comfort of Python runtime
+    Example::
+
+        >>> # xdoctest: +REQUIRES(env:TORCH_DOCTEST_MPS)
+        >>> lib = torch.mps.compile_shader(
+        ... "kernel void full(device float* out, constant float& val, uint idx [[thread_position_in_grid]]) { out[idx] = val; }"
+        ...  )
+        >>> x = torch.zeros(16, device="mps")
+        >>> lib.full(x, 3.14)
+    
+scaled_dot_product_attention(query, key, value, attn_mask=None, dropout_p=0.0,
+        is_causal=False, scale=None, enable_gqa=False) -> Tensor:
+
+    Computes scaled dot product attention on query, key and value tensors, using an optional attention mask if passed,
+    and applying dropout if a probability greater than 0.0 is specified. The optional scale argument can only be
+    specified as a keyword argument.
+
+    .. code-block:: python
+
+        # Efficient implementation equivalent to the following:
+        def scaled_dot_product_attention(query, key, value, attn_mask=None, dropout_p=0.0,
+                is_causal=False, scale=None, enable_gqa=False) -> torch.Tensor:
+            L, S = query.size(-2), key.size(-2)
+            scale_factor = 1 / math.sqrt(query.size(-1)) if scale is None else scale
+            attn_bias = torch.zeros(L, S, dtype=query.dtype, device=query.device)
+            if is_causal:
+                assert attn_mask is None
+                temp_mask = torch.ones(L, S, dtype=torch.bool).tril(diagonal=0)
+                attn_bias.masked_fill_(temp_mask.logical_not(), float("-inf"))
+                attn_bias.to(query.dtype)
+
+            if attn_mask is not None:
+                if attn_mask.dtype == torch.bool:
+                    attn_bias.masked_fill_(attn_mask.logical_not(), float("-inf"))
+                else:
+                    attn_bias = attn_mask + attn_bias
+
+            if enable_gqa:
+                key = key.repeat_interleave(query.size(-3)//key.size(-3), -3)
+                value = value.repeat_interleave(query.size(-3)//value.size(-3), -3)
+
+            attn_weight = query @ key.transpose(-2, -1) * scale_factor
+            attn_weight += attn_bias
+            attn_weight = torch.softmax(attn_weight, dim=-1)
+            attn_weight = torch.dropout(attn_weight, dropout_p, train=True)
+            return attn_weight @ value
+
+    .. warning::
+        This function is beta and subject to change.
+
+    .. warning::
+        This function always applies dropout according to the specified ``dropout_p`` argument.
+        To disable dropout during evaluation, be sure to pass a value of ``0.0`` when the module
+        that makes the function call is not in training mode.
+
+        For example:
+
+        .. code-block:: python
+
+            class MyModel(nn.Module):
+                def __init__(self, p=0.5):
+                    super().__init__()
+                    self.p = p
+
+                def forward(self, ...):
+                    return F.scaled_dot_product_attention(...,
+                        dropout_p=(self.p if self.training else 0.0))
+
+    Note:
+
+        There are currently three supported implementations of scaled dot product attention:
+
+            - `FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning`_
+            - `Memory-Efficient Attention`_
+            - A PyTorch implementation defined in C++ matching the above formulation
+
+        The function may call optimized kernels for improved performance when using the CUDA backend.
+        For all other backends, the PyTorch implementation will be used.
+
+        All implementations are enabled by default. Scaled dot product attention attempts to automatically select the
+        most optimal implementation based on the inputs. In order to provide more fine-grained control over what implementation
+        is used, the following functions are provided for enabling and disabling implementations.
+        The context manager is the preferred mechanism:
+
+            - :func:`torch.nn.attention.sdpa_kernel`: A context manager used to enable or disable any of the implementations.
+            - :func:`torch.backends.cuda.enable_flash_sdp`: Globally enables or disables FlashAttention.
+            - :func:`torch.backends.cuda.enable_mem_efficient_sdp`: Globally enables or disables  Memory-Efficient Attention.
+            - :func:`torch.backends.cuda.enable_math_sdp`: Globally enables or disables  the PyTorch C++ implementation.
+
+        Each of the fused kernels has specific input limitations. If the user requires the use of a specific fused implementation,
+        disable the PyTorch C++ implementation using :func:`torch.nn.attention.sdpa_kernel`.
+        In the event that a fused implementation is not available, a warning will be raised with the
+        reasons why the fused implementation cannot run.
+
+        Due to the nature of fusing floating point operations, the output of this function may be different
+        depending on what backend kernel is chosen.
+        The c++ implementation supports torch.float64 and can be used when higher precision is required.
+        For math backend, all intermediates are kept in torch.float if inputs are in torch.half or torch.bfloat16.
+    For more information please see :doc:`/notes/numerical_accuracy`
+
+        Grouped Query Attention (GQA) is an experimental feature. It currently works only for Flash_attention
+        and math kernel on CUDA tensor, and does not support Nested tensor.
+        Constraints for GQA:
+
+            - number_of_heads_query % number_of_heads_key_value == 0 and,
+            - number_of_heads_key == number_of_heads_value
+
+    Note:
+
+        In some circumstances when given tensors on a CUDA device and using CuDNN, this operator may select a nondeterministic algorithm to increase performance. If this is undesirable, you can try to make the operation deterministic (potentially at a performance cost) by setting ``torch.backends.cudnn.deterministic = True``. See :doc:`/notes/randomness` for more information.
+    
+    Args:
+        query (Tensor): Query tensor; shape :math:`(N, ..., Hq, L, E)`.
+        key (Tensor): Key tensor; shape :math:`(N, ..., H, S, E)`.
+        value (Tensor): Value tensor; shape :math:`(N, ..., H, S, Ev)`.
+        attn_mask (optional Tensor): Attention mask; shape must be broadcastable to the shape of attention weights,
+            which is :math:`(N,..., L, S)`. Two types of masks are supported.
+            A boolean mask where a value of True indicates that the element *should* take part in attention.
+            A float mask of the same type as query, key, value that is added to the attention score.
+        dropout_p (float): Dropout probability; if greater than 0.0, dropout is applied
+        is_causal (bool): If set to true, the attention masking is a lower triangular matrix when the mask is a
+            square matrix. The attention masking has the form of the upper left causal bias due to the alignment
+            (see :class:`torch.nn.attention.bias.CausalBias`) when the mask is a non-square matrix.
+            An error is thrown if both attn_mask and is_causal are set.
+        scale (optional float, keyword-only): Scaling factor applied prior to softmax. If None, the default value is set
+            to :math:`\frac{1}{\sqrt{E}}`.
+        enable_gqa (bool): If set to True, Grouped Query Attention (GQA) is enabled, by default it is set to False.
+
+    Returns:
+        output (Tensor): Attention output; shape :math:`(N, ..., Hq, L, Ev)`.
+
+    Shape legend:
+        - :math:`N: \text{Batch size} ... : \text{Any number of other batch dimensions (optional)}`
+        - :math:`S: \text{Source sequence length}`
+        - :math:`L: \text{Target sequence length}`
+        - :math:`E: \text{Embedding dimension of the query and key}`
+        - :math:`Ev: \text{Embedding dimension of the value}`
+        - :math:`Hq: \text{Number of heads of query}`
+        - :math:`H: \text{Number of heads of key and value}`
+
+    Examples:
+
+        >>> # Optionally use the context manager to ensure one of the fused kernels is run
+        >>> query = torch.rand(32, 8, 128, 64, dtype=torch.float16, device="cuda")
+        >>> key = torch.rand(32, 8, 128, 64, dtype=torch.float16, device="cuda")
+        >>> value = torch.rand(32, 8, 128, 64, dtype=torch.float16, device="cuda")
+        >>> with sdpa_kernel(backends=[SDPBackend.FLASH_ATTENTION]):
+        >>>     F.scaled_dot_product_attention(query,key,value)
+
+
+        >>> # Sample for GQA for llama3
+        >>> query = torch.rand(32, 32, 128, 64, dtype=torch.float16, device="cuda")
+        >>> key = torch.rand(32, 8, 128, 64, dtype=torch.float16, device="cuda")
+        >>> value = torch.rand(32, 8, 128, 64, dtype=torch.float16, device="cuda")
+        >>> with sdpa_kernel(backends=[SDPBackend.MATH]):
+        >>>     F.scaled_dot_product_attention(query,key,value,enable_gqa=True)
+
+
+    .. _FlashAttention-2\: Faster Attention with Better Parallelism and Work Partitioning:
+        https://arxiv.org/abs/2307.08691
+    .. _Memory-Efficient Attention:
+        https://github.com/facebookresearch/xformers
+    .. _Grouped-Query Attention:
+        https://arxiv.org/pdf/2305.13245
+    
+
+apply patch
+patch: completed
+<ws>/lessons-r1-3/task/kernel.py
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..4162f1c4db793eb0c396edfb3b1dc3d48693880b
+--- a/kernel.py
++++ b/kernel.py
+@@ -3,8 +3,4 @@
+ 
+ 
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
+
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 check.py' in <ws>/lessons-r1-3/task
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 bench.py' in <ws>/lessons-r1-3/task
+ succeeded in 1946ms:
+OK: relative error 9.96e-08 (allowed 2e-03)
+
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..4162f1c4db793eb0c396edfb3b1dc3d48693880b
+--- a/kernel.py
++++ b/kernel.py
+@@ -3,8 +3,4 @@
+ 
+ 
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
+
+exec
+/bin/zsh -lc "~/miniconda3/bin/python3 -c 'import torch; x=torch.mps.compile_shader(\"kernel void foo(device float* x [[buffer(0)]], uint tid [[thread_position_in_grid]]) { x[tid]=1; }\"); print(x.foo.__doc__); print(dir(x.foo))'" in <ws>/lessons-r1-3/task
+ succeeded in 575ms:
+None
+['__call__', '__class__', '__delattr__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '_pybind11_conduit_v1_', 'max_threads_per_threadgroup', 'static_thread_group_memory_length', 'thread_execution_width']
+
+ succeeded in 13078ms:
+run 1 of 10 submitted.
+attention: correct (relative error 2.0e-07). reference 72.08 ms, kernel 16.81 ms, speedup 4.29x
+
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..4162f1c4db793eb0c396edfb3b1dc3d48693880b
+--- a/kernel.py
++++ b/kernel.py
+@@ -3,8 +3,4 @@
+ 
+ 
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
+
+codex
+PyTorch’s attention operation passed the check and reduced runtime to 16.81 ms, a 4.29× speedup. I’ll test half-precision arithmetic next, then try a fused Metal kernel to reduce intermediate storage and memory traffic.
+apply patch
+patch: completed
+<ws>/lessons-r1-3/task/kernel.py
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..e4d682dfeaadac15d8ea1a9e978099d9b3f07ae5
+--- a/kernel.py
++++ b/kernel.py
+@@ -3,8 +3,4 @@
+ 
+ 
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    return torch.nn.functional.scaled_dot_product_attention(q.half(), k.half(), v.half(), is_causal=True).float()
+
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 check.py' in <ws>/lessons-r1-3/task
+ succeeded in 960ms:
+OK: relative error 5.77e-04 (allowed 2e-03)
+
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 bench.py' in <ws>/lessons-r1-3/task
+exec
+/bin/zsh -lc "~/miniconda3/bin/python3 -c 'import torch; x=torch.mps.compile_shader(\"kernel void foo(device float* x, uint tid [[thread_position_in_grid]]) { x[tid]=1; }\"); t=torch.empty(64,device=\"mps\"); x.foo(t, threads=64, group_size=32); print(t)'" in <ws>/lessons-r1-3/task
+ succeeded in 857ms:
+tensor([1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+        1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+        1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+        1., 1., 1., 1., 1., 1., 1., 1., 1., 1.], device='mps:0')
+
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..e4d682dfeaadac15d8ea1a9e978099d9b3f07ae5
+--- a/kernel.py
++++ b/kernel.py
+@@ -3,8 +3,4 @@
+ 
+ 
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    return torch.nn.functional.scaled_dot_product_attention(q.half(), k.half(), v.half(), is_causal=True).float()
+
+ succeeded in 14933ms:
+run 2 of 10 submitted.
+attention: correct (relative error 8.6e-04). reference 67.17 ms, kernel 10.52 ms, speedup 6.38x
+
+exec
+/bin/zsh -lc "~/miniconda3/bin/python3 -c 'import torch; lib=torch.mps.compile_shader(\"\"\"#include <metal_stdlib>\\n#include <metal_simdgroup_matrix>\\nusing namespace metal;\\nkernel void foo(device float *o, uint lane [[thread_index_in_simdgroup]]) { simdgroup_half8x8 a,b; simdgroup_float8x8 c; simdgroup_fill(a,half(1)); simdgroup_fill(b,half(1)); simdgroup_fill(c,0.0f); simdgroup_multiply_accumulate(c,a,b,c); simdgroup_store(c,o,8); }\"\"\"); o=torch.empty((8,8),device=\"mps\"); lib.foo(o,threads=32,group_size=32); print(o)'" in <ws>/lessons-r1-3/task
+ exited 1 in 517ms:
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "~/miniconda3/lib/python3.12/site-packages/torch/mps/__init__.py", line 167, in compile_shader
+    return torch._C._mps_compileShader(source)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: program_source:4:122: error: use of undeclared identifier 'simdgroup_fill'; did you mean 'simdgroup_load'?
+kernel void foo(device float *o, uint lane [[thread_index_in_simdgroup]]) { simdgroup_half8x8 a,b; simdgroup_float8x8 c; simdgroup_fill(a,half(1)); simdgroup_fill(b,half(1)); simdgroup_fill(c,0.0f); simdgroup_multiply_accumulate(c,a,b,c); simdgroup_store(c,o,8); }
+                                                                                                                         ^~~~~~~~~~~~~~
+                                                                                                                         simdgroup_load
+/System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/32023/Libraries/lib/clang/32023.884/include/metal/metal_simdgroup_matrix:147:17: note: 'simdgroup_load' declared here
+METAL_FUNC void simdgroup_load(thread simdgroup_matrix<T, Cols, Rows> &d, const threadgroup T *src, ulong elements_per_row = Cols, ulong2 matrix_origin = ulong2(0, 0), bool transpose_matrix = false)
+                ^
+program_source:4:122: error: no matching function for call to 'simdgroup_load'
+kernel void foo(device float *o, uint lane [[thread_index_in_simdgroup]]) { simdgroup_half8x8 a,b; simdgroup_float8x8 c; simdgroup_fill(a,half(1)); simdgroup_fill(b,half(1)); simdgroup_fill(c,0.0f); simdgroup_multiply_accumulate(c,a,b,c); simdgroup_store(c,o,8); }
+                                                                                                                         ^~~~~~~~~~~~~~
+/System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/32023/Libraries/lib/clang/32023.884/include/metal/metal_simdgroup_matrix:147:17: note: candidate template ignored: could not match 'const threadgroup T *' against 'half'
+METAL_FUNC void simdgroup_load(thread simdgroup_matrix<T, Cols, Rows> &d, const threadgroup T *src, ulong elements_per_row = Cols, ulong2 matrix_origin = ulong2(0, 0), bool transpose_matrix = false)
+                ^
+program_source:4:149: error: use of undeclared identifier 'simdgroup_fill'; did you mean 'simdgroup_load'?
+kernel void foo(device float *o, uint lane [[thread_index_in_simdgroup]]) { simdgroup_half8x8 a,b; simdgroup_float8x8 c; simdgroup_fill(a,half(1)); simdgroup_fill(b,half(1)); simdgroup_fill(c,0.0f); simdgroup_multiply_accumulate(c,a,b,c); simdgroup_store(c,o,8); }
+                                                                                                                                                    ^~~~~~~~~~~~~~
+                                                                                                                                                    simdgroup_load
+/System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/32023/Libraries/lib/clang/32023.884/include/metal/metal_simdgroup_matrix:147:17: note: 'simdgroup_load' declared here
+METAL_FUNC void simdgroup_load(thread simdgroup_matrix<T, Cols, Rows> &d, const threadgroup T *src, ulong elements_per_row = Cols, ulong2 matrix_origin = ulong2(0, 0), bool transpose_matrix = false)
+                ^
+program_source:4:149: error: no matching function for call to 'simdgroup_load'
+kernel void foo(device float *o, uint lane [[thread_index_in_simdgroup]]) { simdgroup_half8x8 a,b; simdgroup_float8x8 c; simdgroup_fill(a,half(1)); simdgroup_fill(b,half(1)); simdgroup_fill(c,0.0f); simdgroup_multiply_accumulate(c,a,b,c); simdgroup_store(c,o,8); }
+                                                                                                                                                    ^~~~~~~~~~~~~~
+/System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/32023/Libraries/lib/clang/32023.884/include/metal/metal_simdgroup_matrix:147:17: note: candidate template ignored: could not match 'const threadgroup T *' against 'half'
+METAL_FUNC void simdgroup_load(thread simdgroup_matrix<T, Cols, Rows> &d, const threadgroup T *src, ulong elements_per_row = Cols, ulong2 matrix_origin = ulong2(0, 0), bool transpose_matrix = false)
+                ^
+program_source:4:176: error: use of undeclared identifier 'simdgroup_fill'; did you mean 'simdgroup_load'?
+kernel void foo(device float *o, uint lane [[thread_index_in_simdgroup]]) { simdgroup_half8x8 a,b; simdgroup_float8x8 c; simdgroup_fill(a,half(1)); simdgroup_fill(b,half(1)); simdgroup_fill(c,0.0f); simdgroup_multiply_accumulate(c,a,b,c); simdgroup_store(c,o,8); }
+                                                                                                                                                                               ^~~~~~~~~~~~~~
+                                                                                                                                                                               simdgroup_load
+/System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/32023/Libraries/lib/clang/32023.884/include/metal/metal_simdgroup_matrix:147:17: note: 'simdgroup_load' declared here
+METAL_FUNC void simdgroup_load(thread simdgroup_matrix<T, Cols, Rows> &d, const threadgroup T *src, ulong elements_per_row = Cols, ulong2 matrix_origin = ulong2(0, 0), bool transpose_matrix = false)
+                ^
+program_source:4:176: error: no matching function for call to 'simdgroup_load'
+kernel void foo(device float *o, uint lane [[thread_index_in_simdgroup]]) { simdgroup_half8x8 a,b; simdgroup_float8x8 c; simdgroup_fill(a,half(1)); simdgroup_fill(b,half(1)); simdgroup_fill(c,0.0f); simdgroup_multiply_accumulate(c,a,b,c); simdgroup_store(c,o,8); }
+                                                                                                                                                                               ^~~~~~~~~~~~~~
+/System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/32023/Libraries/lib/clang/32023.884/include/metal/metal_simdgroup_matrix:147:17: note: candidate template ignored: could not match 'const threadgroup T *' against 'float'
+METAL_FUNC void simdgroup_load(thread simdgroup_matrix<T, Cols, Rows> &d, const threadgroup T *src, ulong elements_per_row = Cols, ulong2 matrix_origin = ulong2(0, 0), bool transpose_matrix = false)
+                ^
+
+
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..e4d682dfeaadac15d8ea1a9e978099d9b3f07ae5
+--- a/kernel.py
++++ b/kernel.py
+@@ -3,8 +3,4 @@
+ 
+ 
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    return torch.nn.functional.scaled_dot_product_attention(q.half(), k.half(), v.half(), is_causal=True).float()
+
+exec
+/bin/zsh -lc "~/miniconda3/bin/python3 -c 'import torch; lib=torch.mps.compile_shader(\"\"\"#include <metal_stdlib>\\n#include <metal_simdgroup_matrix>\\nusing namespace metal;\\nkernel void foo(device float *o, uint lane [[thread_index_in_simdgroup]]) { simdgroup_half8x8 a,b; simdgroup_float8x8 c; a.thread_elements()[0]=a.thread_elements()[1]=1; b.thread_elements()[0]=b.thread_elements()[1]=1; c.thread_elements()[0]=c.thread_elements()[1]=0; simdgroup_multiply_accumulate(c,a,b,c); simdgroup_store(c,o,8); }\"\"\"); o=torch.empty((8,8),device=\"mps\"); lib.foo(o,threads=32,group_size=32); print(o)'" in <ws>/lessons-r1-3/task
+ succeeded in 673ms:
+tensor([[8., 8., 8., 8., 8., 8., 8., 8.],
+        [8., 8., 8., 8., 8., 8., 8., 8.],
+        [8., 8., 8., 8., 8., 8., 8., 8.],
+        [8., 8., 8., 8., 8., 8., 8., 8.],
+        [8., 8., 8., 8., 8., 8., 8., 8.],
+        [8., 8., 8., 8., 8., 8., 8., 8.],
+        [8., 8., 8., 8., 8., 8., 8., 8.],
+        [8., 8., 8., 8., 8., 8., 8., 8.]], device='mps:0')
+
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..e4d682dfeaadac15d8ea1a9e978099d9b3f07ae5
+--- a/kernel.py
++++ b/kernel.py
+@@ -3,8 +3,4 @@
+ 
+ 
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    return torch.nn.functional.scaled_dot_product_attention(q.half(), k.half(), v.half(), is_causal=True).float()
+
+exec
+/bin/zsh -lc "~/miniconda3/bin/python3 -c 'import torch; lib=torch.mps.compile_shader(\"\"\"#include <metal_stdlib>\\n#include <metal_simdgroup_matrix>\\nusing namespace metal;\\nkernel void foo(device float *o, uint lane [[thread_index_in_simdgroup]]) { simdgroup_float8x8 c; c.thread_elements()[0]=lane*2; c.thread_elements()[1]=lane*2+1; simdgroup_store(c,o,8); }\"\"\"); o=torch.empty((8,8),device=\"mps\"); lib.foo(o,threads=32,group_size=32); print(o)'" in <ws>/lessons-r1-3/task
+ succeeded in 676ms:
+tensor([[ 0.,  1.,  2.,  3., 16., 17., 18., 19.],
+        [ 4.,  5.,  6.,  7., 20., 21., 22., 23.],
+        [ 8.,  9., 10., 11., 24., 25., 26., 27.],
+        [12., 13., 14., 15., 28., 29., 30., 31.],
+        [32., 33., 34., 35., 48., 49., 50., 51.],
+        [36., 37., 38., 39., 52., 53., 54., 55.],
+        [40., 41., 42., 43., 56., 57., 58., 59.],
+        [44., 45., 46., 47., 60., 61., 62., 63.]], device='mps:0')
+
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..e4d682dfeaadac15d8ea1a9e978099d9b3f07ae5
+--- a/kernel.py
++++ b/kernel.py
+@@ -3,8 +3,4 @@
+ 
+ 
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    return torch.nn.functional.scaled_dot_product_attention(q.half(), k.half(), v.half(), is_causal=True).float()
+
+exec
+/bin/zsh -lc "cat > kernel.py <<'PY'
+\"\"\"Causal attention using tiled Metal matrix operations.\"\"\"
+import torch
+
+_SOURCE = r\"\"\"
+#include <metal_stdlib>
+#include <metal_simdgroup_matrix>
+using namespace metal;
+
+kernel void attention(
+    device const float* Q, device const float* K, device const float* V,
+    device float* O,
+    uint3 group [[threadgroup_position_in_grid]],
+    uint tid [[thread_index_in_threadgroup]],
+    uint sg [[simdgroup_index_in_threadgroup]],
+    uint lane [[thread_index_in_simdgroup]]) {
+    const uint first = group.x * 32;
+    const uint base = group.y * 1024 * 64;
+    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
+    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
+    const uint qr = sg * 8 + row;
+    threadgroup half qs[32 * 64];
+    threadgroup half ks[32 * 64];
+    threadgroup half vs[32 * 64];
+    threadgroup half ps[32 * 32];
+    for (uint i=tid; i<32*64; i+=128) qs[i] = half(Q[base + first*64+i]);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    simdgroup_half8x8 aq[8];
+    simdgroup_float8x8 out[8];
+    for (uint d=0; d<8; ++d) {
+        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
+        out[d].thread_elements()[0] = 0;
+        out[d].thread_elements()[1] = 0;
+    }
+    float maximum = -INFINITY;
+    float total = 0;
+    for (uint start=0; start<first+32; start+=32) {
+        for (uint i=tid; i<32*64; i+=128) {
+            ks[i] = half(K[base+start*64+i]);
+            vs[i] = half(V[base+start*64+i]);
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        simdgroup_float8x8 score[4];
+        for (uint j=0; j<4; ++j) {
+            score[j].thread_elements()[0] = 0;
+            score[j].thread_elements()[1] = 0;
+        }
+        for (uint d=0; d<8; ++d) {
+            for (uint j=0; j<4; ++j) {
+                simdgroup_half8x8 bk;
+                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
+                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
+            }
+        }
+        float mx = -INFINITY;
+        for (uint j=0; j<4; ++j) {
+            for (uint e=0; e<2; ++e) {
+                float s = score[j].thread_elements()[e] * 0.125f;
+                if (start+j*8+col+e > first+qr) s = -INFINITY;
+                score[j].thread_elements()[e] = s;
+                mx = max(mx, s);
+            }
+        }
+        mx = max(mx, simd_shuffle_xor(mx, 1));
+        mx = max(mx, simd_shuffle_xor(mx, 8));
+        float next_max = max(maximum, mx);
+        float correction = fast::exp(maximum-next_max);
+        float block_sum = 0;
+        for (uint j=0; j<4; ++j) {
+            simdgroup_half8x8 p;
+            for (uint e=0; e<2; ++e) {
+                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
+                block_sum += prob;
+                p.thread_elements()[e] = half(prob);
+            }
+            simdgroup_store(p, ps+sg*8*32+j*8, 32);
+        }
+        block_sum += simd_shuffle_xor(block_sum, 1);
+        block_sum += simd_shuffle_xor(block_sum, 8);
+        total = total*correction + block_sum;
+        maximum = next_max;
+        for (uint d=0; d<8; ++d) {
+            out[d].thread_elements()[0] *= correction;
+            out[d].thread_elements()[1] *= correction;
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        for (uint j=0; j<4; ++j) {
+            simdgroup_half8x8 p;
+            simdgroup_load(p, ps+sg*8*32+j*8, 32);
+            for (uint d=0; d<8; ++d) {
+                simdgroup_half8x8 b;
+                simdgroup_load(b, vs+j*8*64+d*8, 64);
+                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
+            }
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    for (uint d=0; d<8; ++d) {
+        out[d].thread_elements()[0] /= total;
+        out[d].thread_elements()[1] /= total;
+        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
+    }
+}
+\"\"\"
+_LIB = torch.mps.compile_shader(_SOURCE)
+
+
+def kernel(q, k, v):
+    if q.shape "'!= (8, 8, 1024, 64):
+        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
+    out = torch.empty_like(q)
+    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(128, 1, 1))
+    return out
+PY
+~/miniconda3/bin/python3 check.py' in <ws>/lessons-r1-3/task
+ exited 1 in 458ms:
+zsh:1: can't create temp file for here document: operation not permitted
+Traceback (most recent call last):
+  File "<ws>/lessons-r1-3/task/check.py", line 3, in <module>
+    from kernel import kernel
+ImportError: cannot import name 'kernel' from 'kernel' (<ws>/lessons-r1-3/task/kernel.py)
+
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..e4d682dfeaadac15d8ea1a9e978099d9b3f07ae5
+--- a/kernel.py
++++ b/kernel.py
+@@ -3,8 +3,4 @@
+ 
+ 
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    return torch.nn.functional.scaled_dot_product_attention(q.half(), k.half(), v.half(), is_causal=True).float()
+
+apply patch
+patch: completed
+<ws>/lessons-r1-3/task/kernel.py
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..3ce850496f22a46cac5bc5edb2ea0c6dfaba7c63
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,112 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * 32;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[32 * 64];
++    threadgroup half ks[32 * 64];
++    threadgroup half vs[32 * 64];
++    threadgroup half ps[32 * 32];
++    for (uint i=tid; i<32*64; i+=128) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+32; start+=32) {
++        for (uint i=tid; i<32*64; i+=128) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[4];
++        for (uint j=0; j<4; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<4; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<4; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<4; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*32+j*8, 32);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<4; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*32+j*8, 32);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
+ 
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(128, 1, 1))
++    return out
+
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 check.py' in <ws>/lessons-r1-3/task
+ succeeded in 675ms:
+OK: relative error 3.77e-04 (allowed 2e-03)
+
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..3ce850496f22a46cac5bc5edb2ea0c6dfaba7c63
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,112 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * 32;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[32 * 64];
++    threadgroup half ks[32 * 64];
++    threadgroup half vs[32 * 64];
++    threadgroup half ps[32 * 32];
++    for (uint i=tid; i<32*64; i+=128) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+32; start+=32) {
++        for (uint i=tid; i<32*64; i+=128) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[4];
++        for (uint j=0; j<4; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<4; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<4; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<4; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*32+j*8, 32);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<4; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*32+j*8, 32);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
+ 
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(128, 1, 1))
++    return out
+
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 bench.py' in <ws>/lessons-r1-3/task
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..3ce850496f22a46cac5bc5edb2ea0c6dfaba7c63
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,112 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * 32;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[32 * 64];
++    threadgroup half ks[32 * 64];
++    threadgroup half vs[32 * 64];
++    threadgroup half ps[32 * 32];
++    for (uint i=tid; i<32*64; i+=128) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+32; start+=32) {
++        for (uint i=tid; i<32*64; i+=128) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[4];
++        for (uint j=0; j<4; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<4; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<4; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<4; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*32+j*8, 32);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<4; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*32+j*8, 32);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
+ 
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(128, 1, 1))
++    return out
+
+codex
+Half-precision PyTorch attention ran in 10.52 ms and passed the tolerance. The first custom Metal version also passed; it fuses matrix products and online softmax while processing only causal tiles. Its benchmark is running now.
+ succeeded in 11923ms:
+run 3 of 10 submitted.
+attention: correct (relative error 6.1e-04). reference 58.89 ms, kernel 10.53 ms, speedup 5.59x
+
+exec
+/bin/zsh -lc "~/miniconda3/bin/python3 -c 'from kernel import _LIB; print(_LIB.attention.max_threads_per_threadgroup, _LIB.attention.static_thread_group_memory_length)'" in <ws>/lessons-r1-3/task
+ succeeded in 641ms:
+1024 14336
+
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..3ce850496f22a46cac5bc5edb2ea0c6dfaba7c63
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,112 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * 32;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[32 * 64];
++    threadgroup half ks[32 * 64];
++    threadgroup half vs[32 * 64];
++    threadgroup half ps[32 * 32];
++    for (uint i=tid; i<32*64; i+=128) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+32; start+=32) {
++        for (uint i=tid; i<32*64; i+=128) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[4];
++        for (uint j=0; j<4; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<4; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<4; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<4; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*32+j*8, 32);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<4; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*32+j*8, 32);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
+ 
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(128, 1, 1))
++    return out
+
+apply patch
+patch: completed
+<ws>/lessons-r1-3/task/kernel.py
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..d5107d419d9819da2bf3f8c89258f7f976c8b55b
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,115 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BQ 64
++#define BK 32
++#define NT (BQ * 4)
+ 
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * BQ;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[BQ * 64];
++    threadgroup half ks[BK * 64];
++    threadgroup half vs[BK * 64];
++    threadgroup half ps[BQ * BK];
++    for (uint i=tid; i<BQ*64; i+=NT) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+BQ; start+=BK) {
++        for (uint i=tid; i<BK*64; i+=NT) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[BK/8];
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<BK/8; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*BK+j*8, BK);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*BK+j*8, BK);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
++
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(256, 1, 1))
++    return out
+
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 check.py' in <ws>/lessons-r1-3/task
+ succeeded in 1036ms:
+OK: relative error 3.48e-04 (allowed 2e-03)
+
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 bench.py' in <ws>/lessons-r1-3/task
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..d5107d419d9819da2bf3f8c89258f7f976c8b55b
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,115 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BQ 64
++#define BK 32
++#define NT (BQ * 4)
+ 
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * BQ;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[BQ * 64];
++    threadgroup half ks[BK * 64];
++    threadgroup half vs[BK * 64];
++    threadgroup half ps[BQ * BK];
++    for (uint i=tid; i<BQ*64; i+=NT) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+BQ; start+=BK) {
++        for (uint i=tid; i<BK*64; i+=NT) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[BK/8];
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<BK/8; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*BK+j*8, BK);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*BK+j*8, BK);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
++
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(256, 1, 1))
++    return out
+
+ succeeded in 11922ms:
+run 4 of 10 submitted.
+attention: correct (relative error 6.1e-04). reference 60.82 ms, kernel 10.89 ms, speedup 5.58x
+
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..d5107d419d9819da2bf3f8c89258f7f976c8b55b
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,115 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BQ 64
++#define BK 32
++#define NT (BQ * 4)
+ 
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * BQ;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[BQ * 64];
++    threadgroup half ks[BK * 64];
++    threadgroup half vs[BK * 64];
++    threadgroup half ps[BQ * BK];
++    for (uint i=tid; i<BQ*64; i+=NT) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+BQ; start+=BK) {
++        for (uint i=tid; i<BK*64; i+=NT) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[BK/8];
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<BK/8; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*BK+j*8, BK);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*BK+j*8, BK);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
++
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(256, 1, 1))
++    return out
+
+exec
+/bin/zsh -lc "~/miniconda3/bin/python3 -c 'from pathlib import Path; p=Path(\"kernel.py\"); s=p.read_text(); s=s.replace(\"    for (uint d=0; d<8; ++d)\",\"    #pragma unroll\\n    for (uint d=0; d<8; ++d)\").replace(\"        for (uint j=0; j<BK/8; ++j)\",\"        #pragma unroll\\n        for (uint j=0; j<BK/8; ++j)\").replace(\"            for (uint e=0; e<2; ++e)\",\"            #pragma unroll\\n            for (uint e=0; e<2; ++e)\"); p.write_text(s)'" in <ws>/lessons-r1-3/task
+ succeeded in 0ms:
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 check.py' in <ws>/lessons-r1-3/task
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 bench.py' in <ws>/lessons-r1-3/task
+ succeeded in 1218ms:
+OK: relative error 3.93e-04 (allowed 2e-03)
+
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..d5107d419d9819da2bf3f8c89258f7f976c8b55b
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,115 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BQ 64
++#define BK 32
++#define NT (BQ * 4)
+ 
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * BQ;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[BQ * 64];
++    threadgroup half ks[BK * 64];
++    threadgroup half vs[BK * 64];
++    threadgroup half ps[BQ * BK];
++    for (uint i=tid; i<BQ*64; i+=NT) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+BQ; start+=BK) {
++        for (uint i=tid; i<BK*64; i+=NT) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[BK/8];
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<BK/8; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*BK+j*8, BK);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*BK+j*8, BK);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
++
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(256, 1, 1))
++    return out
+
+ succeeded in 7940ms:
+run 5 of 10 submitted.
+attention: correct (relative error 6.1e-04). reference 68.55 ms, kernel 10.72 ms, speedup 6.40x
+
+exec
+/bin/zsh -lc "sed -n '1,200p' kernel.py" in <ws>/lessons-r1-3/task
+ succeeded in 0ms:
+"""Causal attention using tiled Metal matrix operations."""
+import torch
+
+_SOURCE = r"""
+#include <metal_stdlib>
+#include <metal_simdgroup_matrix>
+using namespace metal;
+#define BQ 64
+#define BK 32
+#define NT (BQ * 4)
+
+kernel void attention(
+    device const float* Q, device const float* K, device const float* V,
+    device float* O,
+    uint3 group [[threadgroup_position_in_grid]],
+    uint tid [[thread_index_in_threadgroup]],
+    uint sg [[simdgroup_index_in_threadgroup]],
+    uint lane [[thread_index_in_simdgroup]]) {
+    const uint first = group.x * BQ;
+    const uint base = group.y * 1024 * 64;
+    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
+    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
+    const uint qr = sg * 8 + row;
+    threadgroup half qs[BQ * 64];
+    threadgroup half ks[BK * 64];
+    threadgroup half vs[BK * 64];
+    threadgroup half ps[BQ * BK];
+    for (uint i=tid; i<BQ*64; i+=NT) qs[i] = half(Q[base + first*64+i]);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    simdgroup_half8x8 aq[8];
+    simdgroup_float8x8 out[8];
+    #pragma unroll
+    for (uint d=0; d<8; ++d) {
+        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
+        out[d].thread_elements()[0] = 0;
+        out[d].thread_elements()[1] = 0;
+    }
+    float maximum = -INFINITY;
+    float total = 0;
+    for (uint start=0; start<first+BQ; start+=BK) {
+        for (uint i=tid; i<BK*64; i+=NT) {
+            ks[i] = half(K[base+start*64+i]);
+            vs[i] = half(V[base+start*64+i]);
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        simdgroup_float8x8 score[BK/8];
+        #pragma unroll
+        for (uint j=0; j<BK/8; ++j) {
+            score[j].thread_elements()[0] = 0;
+            score[j].thread_elements()[1] = 0;
+        }
+        #pragma unroll
+    for (uint d=0; d<8; ++d) {
+            #pragma unroll
+        for (uint j=0; j<BK/8; ++j) {
+                simdgroup_half8x8 bk;
+                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
+                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
+            }
+        }
+        float mx = -INFINITY;
+        #pragma unroll
+        for (uint j=0; j<BK/8; ++j) {
+            #pragma unroll
+            for (uint e=0; e<2; ++e) {
+                float s = score[j].thread_elements()[e] * 0.125f;
+                if (start+j*8+col+e > first+qr) s = -INFINITY;
+                score[j].thread_elements()[e] = s;
+                mx = max(mx, s);
+            }
+        }
+        mx = max(mx, simd_shuffle_xor(mx, 1));
+        mx = max(mx, simd_shuffle_xor(mx, 8));
+        float next_max = max(maximum, mx);
+        float correction = fast::exp(maximum-next_max);
+        float block_sum = 0;
+        #pragma unroll
+        for (uint j=0; j<BK/8; ++j) {
+            simdgroup_half8x8 p;
+            #pragma unroll
+            for (uint e=0; e<2; ++e) {
+                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
+                block_sum += prob;
+                p.thread_elements()[e] = half(prob);
+            }
+            simdgroup_store(p, ps+sg*8*BK+j*8, BK);
+        }
+        block_sum += simd_shuffle_xor(block_sum, 1);
+        block_sum += simd_shuffle_xor(block_sum, 8);
+        total = total*correction + block_sum;
+        maximum = next_max;
+        #pragma unroll
+    for (uint d=0; d<8; ++d) {
+            out[d].thread_elements()[0] *= correction;
+            out[d].thread_elements()[1] *= correction;
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        #pragma unroll
+        for (uint j=0; j<BK/8; ++j) {
+            simdgroup_half8x8 p;
+            simdgroup_load(p, ps+sg*8*BK+j*8, BK);
+            #pragma unroll
+    for (uint d=0; d<8; ++d) {
+                simdgroup_half8x8 b;
+                simdgroup_load(b, vs+j*8*64+d*8, 64);
+                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
+            }
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    #pragma unroll
+    for (uint d=0; d<8; ++d) {
+        out[d].thread_elements()[0] /= total;
+        out[d].thread_elements()[1] /= total;
+        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
+    }
+}
+"""
+_LIB = torch.mps.compile_shader(_SOURCE)
+
+
+def kernel(q, k, v):
+    if q.shape != (8, 8, 1024, 64):
+        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
+    out = torch.empty_like(q)
+    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(256, 1, 1))
+    return out
+
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..d5107d419d9819da2bf3f8c89258f7f976c8b55b
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,115 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BQ 64
++#define BK 32
++#define NT (BQ * 4)
+ 
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * BQ;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[BQ * 64];
++    threadgroup half ks[BK * 64];
++    threadgroup half vs[BK * 64];
++    threadgroup half ps[BQ * BK];
++    for (uint i=tid; i<BQ*64; i+=NT) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+BQ; start+=BK) {
++        for (uint i=tid; i<BK*64; i+=NT) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[BK/8];
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<BK/8; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*BK+j*8, BK);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*BK+j*8, BK);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
++
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(256, 1, 1))
++    return out
+
+codex
+The first fused Metal kernel ran in 10.53 ms, about the same as half-precision PyTorch attention. A larger query tile and loop unrolling did not help. I’ll try larger key tiles and convert inputs once, reducing repeated loads and conversions.
+exec
+/bin/zsh -lc "~/miniconda3/bin/python3 -c 'from pathlib import Path; p=Path(\"kernel.py\"); s=p.read_text().replace(\"#define BQ 64\", \"#define BQ 32\").replace(\"#define BK 32\", \"#define BK 64\").replace(\"device const float* Q, device const float* K, device const float* V\", \"device const half* Q, device const half* K, device const half* V\").replace(\"_LIB.attention(q, k, v, out,\", \"_LIB.attention(q.half(), k.half(), v.half(), out,\").replace(\"group_size=(256, 1, 1)\", \"group_size=(128, 1, 1)\"); p.write_text(s)'" in <ws>/lessons-r1-3/task
+ succeeded in 0ms:
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 check.py' in <ws>/lessons-r1-3/task
+ succeeded in 731ms:
+OK: relative error 3.61e-04 (allowed 2e-03)
+
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 bench.py' in <ws>/lessons-r1-3/task
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..d5107d419d9819da2bf3f8c89258f7f976c8b55b
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,115 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BQ 64
++#define BK 32
++#define NT (BQ * 4)
+ 
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * BQ;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[BQ * 64];
++    threadgroup half ks[BK * 64];
++    threadgroup half vs[BK * 64];
++    threadgroup half ps[BQ * BK];
++    for (uint i=tid; i<BQ*64; i+=NT) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+BQ; start+=BK) {
++        for (uint i=tid; i<BK*64; i+=NT) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[BK/8];
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<BK/8; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*BK+j*8, BK);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*BK+j*8, BK);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
++
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(256, 1, 1))
++    return out
+
+ succeeded in 7914ms:
+run 6 of 10 submitted.
+attention: correct (relative error 6.1e-04). reference 65.28 ms, kernel 15.29 ms, speedup 4.27x
+
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..d5107d419d9819da2bf3f8c89258f7f976c8b55b
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,115 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BQ 64
++#define BK 32
++#define NT (BQ * 4)
+ 
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * BQ;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[BQ * 64];
++    threadgroup half ks[BK * 64];
++    threadgroup half vs[BK * 64];
++    threadgroup half ps[BQ * BK];
++    for (uint i=tid; i<BQ*64; i+=NT) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+BQ; start+=BK) {
++        for (uint i=tid; i<BK*64; i+=NT) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[BK/8];
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<BK/8; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*BK+j*8, BK);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*BK+j*8, BK);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
++
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(256, 1, 1))
++    return out
+
+exec
+/bin/zsh -lc "~/miniconda3/bin/python3 -c 'from pathlib import Path; Path('\\''kernel.py'\\'').write_text(\"\\\"\\\"\\\"Causal attention using Metal matrix operations.\\\"\\\"\\\"\\nimport torch\\n\\n_SOURCE = r\\\"\\\"\\\"\\n#include <metal_stdlib>\\n#include <metal_simdgroup_matrix>\\nusing namespace metal;\\n#define BK 32\\n\\nkernel void attention(\\n    device const half* Q, device const half* K, device const half* V,\\n    device float* O,\\n    uint3 group [[threadgroup_position_in_grid]],\\n    uint sg [[simdgroup_index_in_threadgroup]],\\n    uint lane [[thread_index_in_simdgroup]]) {\\n    const uint first = (group.x * 4 + sg) * 8;\\n    const uint base = group.y * 1024 * 64;\\n    const uint row = (lane % 8) / 2 + (lane / 16) * 4;\\n    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;\\n    simdgroup_half8x8 aq[8];\\n    simdgroup_float8x8 out[8];\\n    #pragma unroll\\n    for (uint d=0; d<8; ++d) {\\n        simdgroup_load(aq[d], Q+base+first*64+d*8, 64);\\n        out[d].thread_elements()[0] = 0;\\n        out[d].thread_elements()[1] = 0;\\n    }\\n    float maximum = -INFINITY;\\n    float total = 0;\\n    for (uint start=0; start<first+8; start+=BK) {\\n        simdgroup_float8x8 score[BK/8];\\n        #pragma unroll\\n        for (uint j=0; j<BK/8; ++j) {\\n            score[j].thread_elements()[0] = 0;\\n            score[j].thread_elements()[1] = 0;\\n        }\\n        #pragma unroll\\n        for (uint d=0; d<8; ++d) {\\n            #pragma unroll\\n            for (uint j=0; j<BK/8; ++j) {\\n                simdgroup_half8x8 bk;\\n                simdgroup_load(bk, K+base+(start+j*8)*64+d*8, 64, ulong2(0), true);\\n                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);\\n            }\\n        }\\n        float mx = -INFINITY;\\n        #pragma unroll\\n        for (uint j=0; j<BK/8; ++j) {\\n            #pragma unroll\\n            for (uint e=0; e<2; ++e) {\\n                float s = score[j].thread_elements()[e] * 0.125f;\\n                if (start+j*8+col+e > first+row) s = -INFINITY;\\n                score[j].thread_elements()[e] = s;\\n                mx = max(mx, s);\\n            }\\n        }\\n        mx = max(mx, simd_shuffle_xor(mx, 1));\\n        mx = max(mx, simd_shuffle_xor(mx, 8));\\n        float next_max = max(maximum, mx);\\n        float correction = fast::exp(maximum-next_max);\\n        float block_sum = 0;\\n        simdgroup_half8x8 probs[BK/8];\\n        #pragma unroll\\n        for (uint j=0; j<BK/8; ++j) {\\n            #pragma unroll\\n            for (uint e=0; e<2; ++e) {\\n                float prob = fast::exp(score[j].thread_elements()[e]-next_max);\\n                block_sum += prob;\\n                probs[j].thread_elements()[e] = half(prob);\\n            }\\n        }\\n        block_sum += simd_shuffle_xor(block_sum, 1);\\n        block_sum += simd_shuffle_xor(block_sum, 8);\\n        total = total*correction + block_sum;\\n        maximum = next_max;\\n        #pragma unroll\\n        for (uint d=0; d<8; ++d) {\\n            out[d].thread_elements()[0] *= correction;\\n            out[d].thread_elements()[1] *= correction;\\n        }\\n        #pragma unroll\\n        for (uint j=0; j<BK/8; ++j) {\\n            #pragma unroll\\n            for (uint d=0; d<8; ++d) {\\n                simdgroup_half8x8 b;\\n                simdgroup_load(b, V+base+(start+j*8)*64+d*8, 64);\\n                simdgroup_multiply_accumulate(out[d], probs[j], b, out[d]);\\n            }\\n        }\\n    }\\n    #pragma unroll\\n    for (uint d=0; d<8; ++d) {\\n        out[d].thread_elements()[0] /= total;\\n        out[d].thread_elements()[1] /= total;\\n        simdgroup_store(out[d], O+base+first*64+d*8, 64);\\n    }\\n}\\n\\\"\\\"\\\"\\n_LIB = torch.mps.compile_shader(_SOURCE)\\n\\n\\ndef kernel(q, k, v):\\n    if q.shape "'!= (8, 8, 1024, 64):'"\\n        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)\\n    out = torch.empty_like(q)\\n    _LIB.attention(q.half(), k.half(), v.half(), out, threads=(4096, 64, 1), group_size=(128, 1, 1))\\n    return out\\n\")'" in <ws>/lessons-r1-3/task
+ succeeded in 0ms:
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 check.py' in <ws>/lessons-r1-3/task
+ succeeded in 671ms:
+OK: relative error 3.32e-04 (allowed 2e-03)
+
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 bench.py' in <ws>/lessons-r1-3/task
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..d5107d419d9819da2bf3f8c89258f7f976c8b55b
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,115 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BQ 64
++#define BK 32
++#define NT (BQ * 4)
+ 
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * BQ;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[BQ * 64];
++    threadgroup half ks[BK * 64];
++    threadgroup half vs[BK * 64];
++    threadgroup half ps[BQ * BK];
++    for (uint i=tid; i<BQ*64; i+=NT) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+BQ; start+=BK) {
++        for (uint i=tid; i<BK*64; i+=NT) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[BK/8];
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<BK/8; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*BK+j*8, BK);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*BK+j*8, BK);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
++
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(256, 1, 1))
++    return out
+
+ succeeded in 7913ms:
+run 7 of 10 submitted.
+attention: correct (relative error 6.1e-04). reference 63.70 ms, kernel 10.38 ms, speedup 6.14x
+
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..d5107d419d9819da2bf3f8c89258f7f976c8b55b
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,115 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BQ 64
++#define BK 32
++#define NT (BQ * 4)
+ 
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * BQ;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[BQ * 64];
++    threadgroup half ks[BK * 64];
++    threadgroup half vs[BK * 64];
++    threadgroup half ps[BQ * BK];
++    for (uint i=tid; i<BQ*64; i+=NT) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+BQ; start+=BK) {
++        for (uint i=tid; i<BK*64; i+=NT) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[BK/8];
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<BK/8; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*BK+j*8, BK);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*BK+j*8, BK);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
++
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(256, 1, 1))
++    return out
+
+codex
+Larger key tiles slowed the kernel. Removing threadgroup storage and keeping tiles in registers brought it to 10.38 ms. I’ll now test half-precision matrix accumulators, while retaining float32 softmax totals and output accumulation.
+exec
+/bin/zsh -lc "~/miniconda3/bin/python3 -c 'from pathlib import Path; p=Path(\"kernel.py\"); s=p.read_text().replace(\"simdgroup_float8x8 score[BK/8]\", \"simdgroup_half8x8 score[BK/8]\"); s=s.replace(\"        #pragma unroll\\n        for (uint j=0; j<BK/8; ++j) {\\n            #pragma unroll\\n            for (uint d=0; d<8; ++d) {\\n                simdgroup_half8x8 b;\\n                simdgroup_load(b, V+base+(start+j*8)*64+d*8, 64);\\n                simdgroup_multiply_accumulate(out[d], probs[j], b, out[d]);\\n            }\\n        }\", \"        #pragma unroll\\n        for (uint d=0; d<8; ++d) {\\n            simdgroup_half8x8 block;\\n            block.thread_elements()[0] = 0;\\n            block.thread_elements()[1] = 0;\\n            #pragma unroll\\n            for (uint j=0; j<BK/8; ++j) {\\n                simdgroup_half8x8 b;\\n                simdgroup_load(b, V+base+(start+j*8)*64+d*8, 64);\\n                simdgroup_multiply_accumulate(block, probs[j], b, block);\\n            }\\n            out[d].thread_elements()[0] += float(block.thread_elements()[0]);\\n            out[d].thread_elements()[1] += float(block.thread_elements()[1]);\\n        }\"); p.write_text(s)'" in <ws>/lessons-r1-3/task
+ succeeded in 0ms:
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 check.py' in <ws>/lessons-r1-3/task
+ succeeded in 936ms:
+WRONG: relative error 2.30e-03 (allowed 2e-03)
+
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 bench.py' in <ws>/lessons-r1-3/task
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..d5107d419d9819da2bf3f8c89258f7f976c8b55b
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,115 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BQ 64
++#define BK 32
++#define NT (BQ * 4)
+ 
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * BQ;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[BQ * 64];
++    threadgroup half ks[BK * 64];
++    threadgroup half vs[BK * 64];
++    threadgroup half ps[BQ * BK];
++    for (uint i=tid; i<BQ*64; i+=NT) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+BQ; start+=BK) {
++        for (uint i=tid; i<BK*64; i+=NT) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[BK/8];
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<BK/8; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*BK+j*8, BK);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*BK+j*8, BK);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
++
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(256, 1, 1))
++    return out
+
+ succeeded in 10927ms:
+run 8 of 10 submitted.
+attention: WRONG, relative error 2.02e-03 in trial 0, allowed 2e-03 -> score 0
+
+exec
+/bin/zsh -lc "~/miniconda3/bin/python3 -c 'from pathlib import Path; p=Path(\"kernel.py\"); s=p.read_text().replace(\"simdgroup_half8x8 score[BK/8]\", \"simdgroup_float8x8 score[BK/8]\"); p.write_text(s)'" in <ws>/lessons-r1-3/task
+ succeeded in 0ms:
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 check.py' in <ws>/lessons-r1-3/task
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..d5107d419d9819da2bf3f8c89258f7f976c8b55b
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,115 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BQ 64
++#define BK 32
++#define NT (BQ * 4)
+ 
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * BQ;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[BQ * 64];
++    threadgroup half ks[BK * 64];
++    threadgroup half vs[BK * 64];
++    threadgroup half ps[BQ * BK];
++    for (uint i=tid; i<BQ*64; i+=NT) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+BQ; start+=BK) {
++        for (uint i=tid; i<BK*64; i+=NT) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[BK/8];
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<BK/8; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*BK+j*8, BK);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*BK+j*8, BK);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
++
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(256, 1, 1))
++    return out
+
+ succeeded in 1031ms:
+OK: relative error 1.00e-03 (allowed 2e-03)
+
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 bench.py' in <ws>/lessons-r1-3/task
+exec
+/bin/zsh -lc "~/miniconda3/bin/python3 -c 'import torch; from kernel import kernel; from reference import inputs,reference; errs=[]
+with torch.no_grad():
+ for i in range(5):
+  q,k,v=inputs(); a=reference(q,k,v); b=kernel(q,k,v); errs.append((a-b).abs().max().item()/a.abs().max().item())
+print(errs)'" in <ws>/lessons-r1-3/task
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..d5107d419d9819da2bf3f8c89258f7f976c8b55b
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,115 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BQ 64
++#define BK 32
++#define NT (BQ * 4)
+ 
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * BQ;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[BQ * 64];
++    threadgroup half ks[BK * 64];
++    threadgroup half vs[BK * 64];
++    threadgroup half ps[BQ * BK];
++    for (uint i=tid; i<BQ*64; i+=NT) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+BQ; start+=BK) {
++        for (uint i=tid; i<BK*64; i+=NT) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[BK/8];
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<BK/8; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*BK+j*8, BK);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*BK+j*8, BK);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
++
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(256, 1, 1))
++    return out
+
+ succeeded in 1846ms:
+[0.0008732582578552596, 0.0007387756851439542, 0.0008454823560867302, 0.0007889312109857061, 0.0007944778197864474]
+
+ succeeded in 7912ms:
+run 9 of 10 submitted.
+attention: correct (relative error 1.9e-03). reference 69.89 ms, kernel 9.78 ms, speedup 7.14x
+
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..d5107d419d9819da2bf3f8c89258f7f976c8b55b
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,115 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using tiled Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BQ 64
++#define BK 32
++#define NT (BQ * 4)
+ 
++kernel void attention(
++    device const float* Q, device const float* K, device const float* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint tid [[thread_index_in_threadgroup]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = group.x * BQ;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    const uint qr = sg * 8 + row;
++    threadgroup half qs[BQ * 64];
++    threadgroup half ks[BK * 64];
++    threadgroup half vs[BK * 64];
++    threadgroup half ps[BQ * BK];
++    for (uint i=tid; i<BQ*64; i+=NT) qs[i] = half(Q[base + first*64+i]);
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], qs+sg*8*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+BQ; start+=BK) {
++        for (uint i=tid; i<BK*64; i+=NT) {
++            ks[i] = half(K[base+start*64+i]);
++            vs[i] = half(V[base+start*64+i]);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        simdgroup_float8x8 score[BK/8];
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        for (uint d=0; d<8; ++d) {
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, ks+j*8*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        for (uint j=0; j<BK/8; ++j) {
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+qr) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                p.thread_elements()[e] = half(prob);
++            }
++            simdgroup_store(p, ps+sg*8*BK+j*8, BK);
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        for (uint j=0; j<BK/8; ++j) {
++            simdgroup_half8x8 p;
++            simdgroup_load(p, ps+sg*8*BK+j*8, BK);
++            for (uint d=0; d<8; ++d) {
++                simdgroup_half8x8 b;
++                simdgroup_load(b, vs+j*8*64+d*8, 64);
++                simdgroup_multiply_accumulate(out[d], p, b, out[d]);
++            }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++    }
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+(first+sg*8)*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
++
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q, k, v, out, threads=(4096, 64, 1), group_size=(256, 1, 1))
++    return out
+
+codex
+Half-precision score accumulation exceeded the error tolerance, so I restored float32 scores. Using half precision only for value-product tiles reached 9.78 ms, but the benchmark error was close to the limit. I’ll use the last run to test smaller accumulation blocks for more accuracy margin.
+apply patch
+patch: completed
+<ws>/lessons-r1-3/task/kernel.py
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..b3daeb72408788bef909c31de969867fb01bd0d1
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,116 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BK 32
++
++kernel void attention(
++    device const half* Q, device const half* K, device const half* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = (group.x * 4 + sg) * 8;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    #pragma unroll
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], Q+base+first*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+8; start+=BK) {
++        simdgroup_float8x8 score[BK/8];
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            #pragma unroll
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, K+base+(start+j*8)*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            #pragma unroll
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+row) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        simdgroup_half8x8 probs[BK/8];
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            #pragma unroll
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                probs[j].thread_elements()[e] = half(prob);
++            }
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            #pragma unroll
++            for (uint chunk=0; chunk<BK/16; ++chunk) {
++                simdgroup_half8x8 block;
++                block.thread_elements()[0] = 0;
++                block.thread_elements()[1] = 0;
++                #pragma unroll
++                for (uint jj=0; jj<2; ++jj) {
++                    uint j=chunk*2+jj;
++                    simdgroup_half8x8 b;
++                    simdgroup_load(b, V+base+(start+j*8)*64+d*8, 64);
++                    simdgroup_multiply_accumulate(block, probs[j], b, block);
++                }
++                out[d].thread_elements()[0] += float(block.thread_elements()[0]);
++                out[d].thread_elements()[1] += float(block.thread_elements()[1]);
++            }
++        }
++    }
++    #pragma unroll
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+first*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
+ 
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q.half(), k.half(), v.half(), out, threads=(4096, 64, 1), group_size=(128, 1, 1))
++    return out
+
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 check.py' in <ws>/lessons-r1-3/task
+ succeeded in 711ms:
+OK: relative error 1.21e-03 (allowed 2e-03)
+
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 bench.py' in <ws>/lessons-r1-3/task
+exec
+/bin/zsh -lc "~/miniconda3/bin/python3 -c 'import torch; from kernel import kernel; from reference import inputs,reference; errs=[]
+with torch.no_grad():
+ for i in range(10):
+  q,k,v=inputs(); a=reference(q,k,v); b=kernel(q,k,v); errs.append((a-b).abs().max().item()/a.abs().max().item())
+print(max(errs), errs)'" in <ws>/lessons-r1-3/task
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..b3daeb72408788bef909c31de969867fb01bd0d1
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,116 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BK 32
++
++kernel void attention(
++    device const half* Q, device const half* K, device const half* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = (group.x * 4 + sg) * 8;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    #pragma unroll
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], Q+base+first*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+8; start+=BK) {
++        simdgroup_float8x8 score[BK/8];
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            #pragma unroll
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, K+base+(start+j*8)*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            #pragma unroll
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+row) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        simdgroup_half8x8 probs[BK/8];
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            #pragma unroll
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                probs[j].thread_elements()[e] = half(prob);
++            }
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            #pragma unroll
++            for (uint chunk=0; chunk<BK/16; ++chunk) {
++                simdgroup_half8x8 block;
++                block.thread_elements()[0] = 0;
++                block.thread_elements()[1] = 0;
++                #pragma unroll
++                for (uint jj=0; jj<2; ++jj) {
++                    uint j=chunk*2+jj;
++                    simdgroup_half8x8 b;
++                    simdgroup_load(b, V+base+(start+j*8)*64+d*8, 64);
++                    simdgroup_multiply_accumulate(block, probs[j], b, block);
++                }
++                out[d].thread_elements()[0] += float(block.thread_elements()[0]);
++                out[d].thread_elements()[1] += float(block.thread_elements()[1]);
++            }
++        }
++    }
++    #pragma unroll
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+first*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
+ 
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q.half(), k.half(), v.half(), out, threads=(4096, 64, 1), group_size=(128, 1, 1))
++    return out
+
+ succeeded in 2516ms:
+0.0010027169560067257 [0.0006842318084527489, 0.0009245920196489649, 0.0007443973939137527, 0.0007088160795885514, 0.0010027169560067257, 0.0009973529675619606, 0.0007007229925986195, 0.0009712027197659784, 0.0007365583069799907, 0.0006073049158608027]
+
+ succeeded in 8917ms:
+run 10 of 10 submitted.
+attention: correct (relative error 1.2e-03). reference 65.81 ms, kernel 9.44 ms, speedup 6.97x
+
+exec
+/bin/zsh -lc 'cat kernel.py' in <ws>/lessons-r1-3/task
+ succeeded in 0ms:
+"""Causal attention using Metal matrix operations."""
+import torch
+
+_SOURCE = r"""
+#include <metal_stdlib>
+#include <metal_simdgroup_matrix>
+using namespace metal;
+#define BK 32
+
+kernel void attention(
+    device const half* Q, device const half* K, device const half* V,
+    device float* O,
+    uint3 group [[threadgroup_position_in_grid]],
+    uint sg [[simdgroup_index_in_threadgroup]],
+    uint lane [[thread_index_in_simdgroup]]) {
+    const uint first = (group.x * 4 + sg) * 8;
+    const uint base = group.y * 1024 * 64;
+    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
+    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
+    simdgroup_half8x8 aq[8];
+    simdgroup_float8x8 out[8];
+    #pragma unroll
+    for (uint d=0; d<8; ++d) {
+        simdgroup_load(aq[d], Q+base+first*64+d*8, 64);
+        out[d].thread_elements()[0] = 0;
+        out[d].thread_elements()[1] = 0;
+    }
+    float maximum = -INFINITY;
+    float total = 0;
+    for (uint start=0; start<first+8; start+=BK) {
+        simdgroup_float8x8 score[BK/8];
+        #pragma unroll
+        for (uint j=0; j<BK/8; ++j) {
+            score[j].thread_elements()[0] = 0;
+            score[j].thread_elements()[1] = 0;
+        }
+        #pragma unroll
+        for (uint d=0; d<8; ++d) {
+            #pragma unroll
+            for (uint j=0; j<BK/8; ++j) {
+                simdgroup_half8x8 bk;
+                simdgroup_load(bk, K+base+(start+j*8)*64+d*8, 64, ulong2(0), true);
+                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
+            }
+        }
+        float mx = -INFINITY;
+        #pragma unroll
+        for (uint j=0; j<BK/8; ++j) {
+            #pragma unroll
+            for (uint e=0; e<2; ++e) {
+                float s = score[j].thread_elements()[e] * 0.125f;
+                if (start+j*8+col+e > first+row) s = -INFINITY;
+                score[j].thread_elements()[e] = s;
+                mx = max(mx, s);
+            }
+        }
+        mx = max(mx, simd_shuffle_xor(mx, 1));
+        mx = max(mx, simd_shuffle_xor(mx, 8));
+        float next_max = max(maximum, mx);
+        float correction = fast::exp(maximum-next_max);
+        float block_sum = 0;
+        simdgroup_half8x8 probs[BK/8];
+        #pragma unroll
+        for (uint j=0; j<BK/8; ++j) {
+            #pragma unroll
+            for (uint e=0; e<2; ++e) {
+                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
+                block_sum += prob;
+                probs[j].thread_elements()[e] = half(prob);
+            }
+        }
+        block_sum += simd_shuffle_xor(block_sum, 1);
+        block_sum += simd_shuffle_xor(block_sum, 8);
+        total = total*correction + block_sum;
+        maximum = next_max;
+        #pragma unroll
+        for (uint d=0; d<8; ++d) {
+            out[d].thread_elements()[0] *= correction;
+            out[d].thread_elements()[1] *= correction;
+        }
+        #pragma unroll
+        for (uint d=0; d<8; ++d) {
+            #pragma unroll
+            for (uint chunk=0; chunk<BK/16; ++chunk) {
+                simdgroup_half8x8 block;
+                block.thread_elements()[0] = 0;
+                block.thread_elements()[1] = 0;
+                #pragma unroll
+                for (uint jj=0; jj<2; ++jj) {
+                    uint j=chunk*2+jj;
+                    simdgroup_half8x8 b;
+                    simdgroup_load(b, V+base+(start+j*8)*64+d*8, 64);
+                    simdgroup_multiply_accumulate(block, probs[j], b, block);
+                }
+                out[d].thread_elements()[0] += float(block.thread_elements()[0]);
+                out[d].thread_elements()[1] += float(block.thread_elements()[1]);
+            }
+        }
+    }
+    #pragma unroll
+    for (uint d=0; d<8; ++d) {
+        out[d].thread_elements()[0] /= total;
+        out[d].thread_elements()[1] /= total;
+        simdgroup_store(out[d], O+base+first*64+d*8, 64);
+    }
+}
+"""
+_LIB = torch.mps.compile_shader(_SOURCE)
+
+
+def kernel(q, k, v):
+    if q.shape != (8, 8, 1024, 64):
+        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
+    out = torch.empty_like(q)
+    _LIB.attention(q.half(), k.half(), v.half(), out, threads=(4096, 64, 1), group_size=(128, 1, 1))
+    return out
+
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..b3daeb72408788bef909c31de969867fb01bd0d1
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,116 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Causal attention using Metal matrix operations."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BK 32
++
++kernel void attention(
++    device const half* Q, device const half* K, device const half* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = (group.x * 4 + sg) * 8;
++    const uint base = group.y * 1024 * 64;
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    #pragma unroll
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], Q+base+first*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+8; start+=BK) {
++        simdgroup_float8x8 score[BK/8];
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            #pragma unroll
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, K+base+(start+j*8)*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            #pragma unroll
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+row) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        simdgroup_half8x8 probs[BK/8];
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            #pragma unroll
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                probs[j].thread_elements()[e] = half(prob);
++            }
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            #pragma unroll
++            for (uint chunk=0; chunk<BK/16; ++chunk) {
++                simdgroup_half8x8 block;
++                block.thread_elements()[0] = 0;
++                block.thread_elements()[1] = 0;
++                #pragma unroll
++                for (uint jj=0; jj<2; ++jj) {
++                    uint j=chunk*2+jj;
++                    simdgroup_half8x8 b;
++                    simdgroup_load(b, V+base+(start+j*8)*64+d*8, 64);
++                    simdgroup_multiply_accumulate(block, probs[j], b, block);
++                }
++                out[d].thread_elements()[0] += float(block.thread_elements()[0]);
++                out[d].thread_elements()[1] += float(block.thread_elements()[1]);
++            }
++        }
++    }
++    #pragma unroll
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+first*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
+ 
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if q.shape != (8, 8, 1024, 64):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q.half(), k.half(), v.half(), out, threads=(4096, 64, 1), group_size=(128, 1, 1))
++    return out
+
+codex
+The final version ran in 9.44 ms, a 6.97× speedup in the last benchmark, with relative error 0.0012 against the 0.002 limit. Ten additional fresh-input checks also passed. I’ll record the measured results in LESSONS.md and run the required final check.
+apply patch
+patch: completed
+<ws>/lessons-r1-3/task/LESSONS.md
+<ws>/lessons-r1-3/task/kernel.py
+diff --git a/LESSONS.md b/LESSONS.md
+index b41c219d643c53a68257d3d3589860ed18f9078f..7e5ee32afe05a56eee79f3c442d4008c20992164
+--- a/LESSONS.md
++++ b/LESSONS.md
+@@ -1 +1,11 @@
+-No notes yet: you are the first agents on this task.
++The original kernel was reported at 67.6 ms. Ten benchmark submissions were used; reference times varied from 58.89 to 72.08 ms, so compare kernel times as well as speedups.
++
++PyTorch scaled dot product attention with causal masking took 16.81 ms in float32. Converting all three inputs to half, using the same operation, and returning float32 took 10.52 ms. Both passed correctness.
++
++A custom Metal shader compiled through PyTorch fused causal matrix products and online softmax. Half matrix operands with float32 scores, softmax totals, and output accumulation passed comfortably. A shared memory implementation with thirty two query rows and thirty two keys took 10.53 ms. Sixty four query rows took 10.89 ms; explicit loop unrolling took 10.72 ms. Thirty two queries and sixty four keys, with inputs converted to half beforehand, regressed to 15.29 ms.
++
++Removing shared memory and barriers helped slightly: independent SIMD groups each process eight query rows, load matrices directly from half input buffers, and keep probabilities in registers. Thirty two key tiles and float32 accumulators took 10.38 ms.
++
++Half precision score accumulation failed tolerance: the benchmark reported relative error 0.00202, and a separate check reported 0.00230. No valid time was obtained for that submission.
++
++Keeping float32 scores but accumulating value products in half over thirty two keys took 9.78 ms; benchmark error reached 0.0019. Splitting those products into sixteen key blocks before adding them to float32 output accumulators improved both speed and accuracy: 9.44 ms, 6.97 times faster, benchmark error 0.0012. This is the final implementation. Ten additional random input checks passed, with maximum relative error about 0.0010. The shader preserves stable online softmax and skips future key tiles.
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..1e287c42da8f2cf64fe3464b8a629a0d32e5b941
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,119 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Fused causal attention with float32 softmax and mixed precision products."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BK 32
+ 
++kernel void attention(
++    device const half* Q, device const half* K, device const half* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = (group.x * 4 + sg) * 8;
++    const uint base = group.y * 1024 * 64;
++    // Each lane owns two adjacent columns; four lanes share each matrix row.
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    #pragma unroll
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], Q+base+first*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+8; start+=BK) {
++        simdgroup_float8x8 score[BK/8];
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            #pragma unroll
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, K+base+(start+j*8)*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            #pragma unroll
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+row) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        simdgroup_half8x8 probs[BK/8];
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            #pragma unroll
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                probs[j].thread_elements()[e] = half(prob);
++            }
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            #pragma unroll
++            for (uint chunk=0; chunk<BK/16; ++chunk) {
++                // Limit half accumulation to sixteen keys, then accumulate in float.
++                simdgroup_half8x8 block;
++                block.thread_elements()[0] = 0;
++                block.thread_elements()[1] = 0;
++                #pragma unroll
++                for (uint jj=0; jj<2; ++jj) {
++                    uint j=chunk*2+jj;
++                    simdgroup_half8x8 b;
++                    simdgroup_load(b, V+base+(start+j*8)*64+d*8, 64);
++                    simdgroup_multiply_accumulate(block, probs[j], b, block);
++                }
++                out[d].thread_elements()[0] += float(block.thread_elements()[0]);
++                out[d].thread_elements()[1] += float(block.thread_elements()[1]);
++            }
++        }
++    }
++    #pragma unroll
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+first*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
++
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if any(x.shape != (8, 8, 1024, 64) or x.dtype != torch.float32
++           or not x.is_contiguous() for x in (q, k, v)):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q.half(), k.half(), v.half(), out, threads=(4096, 64, 1), group_size=(128, 1, 1))
++    return out
+
+exec
+/bin/zsh -lc '~/miniconda3/bin/python3 check.py' in <ws>/lessons-r1-3/task
+ succeeded in 708ms:
+OK: relative error 7.05e-04 (allowed 2e-03)
+
+exec
+/bin/zsh -lc "~/miniconda3/bin/python3 -c 'from pathlib import Path; print(\"LESSONS words:\", len(Path(\"LESSONS.md\").read_text().split()))'" in <ws>/lessons-r1-3/task
+ succeeded in 0ms:
+LESSONS words: 272
+
+diff --git a/LESSONS.md b/LESSONS.md
+index b41c219d643c53a68257d3d3589860ed18f9078f..7e5ee32afe05a56eee79f3c442d4008c20992164
+--- a/LESSONS.md
++++ b/LESSONS.md
+@@ -1 +1,11 @@
+-No notes yet: you are the first agents on this task.
++The original kernel was reported at 67.6 ms. Ten benchmark submissions were used; reference times varied from 58.89 to 72.08 ms, so compare kernel times as well as speedups.
++
++PyTorch scaled dot product attention with causal masking took 16.81 ms in float32. Converting all three inputs to half, using the same operation, and returning float32 took 10.52 ms. Both passed correctness.
++
++A custom Metal shader compiled through PyTorch fused causal matrix products and online softmax. Half matrix operands with float32 scores, softmax totals, and output accumulation passed comfortably. A shared memory implementation with thirty two query rows and thirty two keys took 10.53 ms. Sixty four query rows took 10.89 ms; explicit loop unrolling took 10.72 ms. Thirty two queries and sixty four keys, with inputs converted to half beforehand, regressed to 15.29 ms.
++
++Removing shared memory and barriers helped slightly: independent SIMD groups each process eight query rows, load matrices directly from half input buffers, and keep probabilities in registers. Thirty two key tiles and float32 accumulators took 10.38 ms.
++
++Half precision score accumulation failed tolerance: the benchmark reported relative error 0.00202, and a separate check reported 0.00230. No valid time was obtained for that submission.
++
++Keeping float32 scores but accumulating value products in half over thirty two keys took 9.78 ms; benchmark error reached 0.0019. Splitting those products into sixteen key blocks before adding them to float32 output accumulators improved both speed and accuracy: 9.44 ms, 6.97 times faster, benchmark error 0.0012. This is the final implementation. Ten additional random input checks passed, with maximum relative error about 0.0010. The shader preserves stable online softmax and skips future key tiles.
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..1e287c42da8f2cf64fe3464b8a629a0d32e5b941
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,119 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Fused causal attention with float32 softmax and mixed precision products."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BK 32
+ 
++kernel void attention(
++    device const half* Q, device const half* K, device const half* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = (group.x * 4 + sg) * 8;
++    const uint base = group.y * 1024 * 64;
++    // Each lane owns two adjacent columns; four lanes share each matrix row.
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    #pragma unroll
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], Q+base+first*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+8; start+=BK) {
++        simdgroup_float8x8 score[BK/8];
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            #pragma unroll
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, K+base+(start+j*8)*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            #pragma unroll
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+row) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        simdgroup_half8x8 probs[BK/8];
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            #pragma unroll
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                probs[j].thread_elements()[e] = half(prob);
++            }
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            #pragma unroll
++            for (uint chunk=0; chunk<BK/16; ++chunk) {
++                // Limit half accumulation to sixteen keys, then accumulate in float.
++                simdgroup_half8x8 block;
++                block.thread_elements()[0] = 0;
++                block.thread_elements()[1] = 0;
++                #pragma unroll
++                for (uint jj=0; jj<2; ++jj) {
++                    uint j=chunk*2+jj;
++                    simdgroup_half8x8 b;
++                    simdgroup_load(b, V+base+(start+j*8)*64+d*8, 64);
++                    simdgroup_multiply_accumulate(block, probs[j], b, block);
++                }
++                out[d].thread_elements()[0] += float(block.thread_elements()[0]);
++                out[d].thread_elements()[1] += float(block.thread_elements()[1]);
++            }
++        }
++    }
++    #pragma unroll
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+first*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
++
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if any(x.shape != (8, 8, 1024, 64) or x.dtype != torch.float32
++           or not x.is_contiguous() for x in (q, k, v)):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q.half(), k.half(), v.half(), out, threads=(4096, 64, 1), group_size=(128, 1, 1))
++    return out
+
+codex
+Final benchmark: **9.44 ms, 6.97× speedup**. Final check passed with relative error **7.05e-04**, below 2e-03. Updated LESSONS.md with all measured results.
+
+EDIT: kernel.py now computes causal attention with a fused Metal shader using float32 scores and softmax with half-precision value products accumulated in sixteen-key blocks.
+diff --git a/LESSONS.md b/LESSONS.md
+index b41c219d643c53a68257d3d3589860ed18f9078f..7e5ee32afe05a56eee79f3c442d4008c20992164
+--- a/LESSONS.md
++++ b/LESSONS.md
+@@ -1 +1,11 @@
+-No notes yet: you are the first agents on this task.
++The original kernel was reported at 67.6 ms. Ten benchmark submissions were used; reference times varied from 58.89 to 72.08 ms, so compare kernel times as well as speedups.
++
++PyTorch scaled dot product attention with causal masking took 16.81 ms in float32. Converting all three inputs to half, using the same operation, and returning float32 took 10.52 ms. Both passed correctness.
++
++A custom Metal shader compiled through PyTorch fused causal matrix products and online softmax. Half matrix operands with float32 scores, softmax totals, and output accumulation passed comfortably. A shared memory implementation with thirty two query rows and thirty two keys took 10.53 ms. Sixty four query rows took 10.89 ms; explicit loop unrolling took 10.72 ms. Thirty two queries and sixty four keys, with inputs converted to half beforehand, regressed to 15.29 ms.
++
++Removing shared memory and barriers helped slightly: independent SIMD groups each process eight query rows, load matrices directly from half input buffers, and keep probabilities in registers. Thirty two key tiles and float32 accumulators took 10.38 ms.
++
++Half precision score accumulation failed tolerance: the benchmark reported relative error 0.00202, and a separate check reported 0.00230. No valid time was obtained for that submission.
++
++Keeping float32 scores but accumulating value products in half over thirty two keys took 9.78 ms; benchmark error reached 0.0019. Splitting those products into sixteen key blocks before adding them to float32 output accumulators improved both speed and accuracy: 9.44 ms, 6.97 times faster, benchmark error 0.0012. This is the final implementation. Ten additional random input checks passed, with maximum relative error about 0.0010. The shader preserves stable online softmax and skips future key tiles.
+diff --git a/kernel.py b/kernel.py
+index ae3613fade69862b03718ab415a067ae82050542..1e287c42da8f2cf64fe3464b8a629a0d32e5b941
+--- a/kernel.py
++++ b/kernel.py
+@@ -1,10 +1,119 @@
+-"""Make kernel() faster. It must return the same values as reference() in reference.py."""
++"""Fused causal attention with float32 softmax and mixed precision products."""
+ import torch
+ 
++_SOURCE = r"""
++#include <metal_stdlib>
++#include <metal_simdgroup_matrix>
++using namespace metal;
++#define BK 32
+ 
++kernel void attention(
++    device const half* Q, device const half* K, device const half* V,
++    device float* O,
++    uint3 group [[threadgroup_position_in_grid]],
++    uint sg [[simdgroup_index_in_threadgroup]],
++    uint lane [[thread_index_in_simdgroup]]) {
++    const uint first = (group.x * 4 + sg) * 8;
++    const uint base = group.y * 1024 * 64;
++    // Each lane owns two adjacent columns; four lanes share each matrix row.
++    const uint row = (lane % 8) / 2 + (lane / 16) * 4;
++    const uint col = (lane % 2) * 2 + ((lane / 8) % 2) * 4;
++    simdgroup_half8x8 aq[8];
++    simdgroup_float8x8 out[8];
++    #pragma unroll
++    for (uint d=0; d<8; ++d) {
++        simdgroup_load(aq[d], Q+base+first*64+d*8, 64);
++        out[d].thread_elements()[0] = 0;
++        out[d].thread_elements()[1] = 0;
++    }
++    float maximum = -INFINITY;
++    float total = 0;
++    for (uint start=0; start<first+8; start+=BK) {
++        simdgroup_float8x8 score[BK/8];
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            score[j].thread_elements()[0] = 0;
++            score[j].thread_elements()[1] = 0;
++        }
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            #pragma unroll
++            for (uint j=0; j<BK/8; ++j) {
++                simdgroup_half8x8 bk;
++                simdgroup_load(bk, K+base+(start+j*8)*64+d*8, 64, ulong2(0), true);
++                simdgroup_multiply_accumulate(score[j], aq[d], bk, score[j]);
++            }
++        }
++        float mx = -INFINITY;
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            #pragma unroll
++            for (uint e=0; e<2; ++e) {
++                float s = score[j].thread_elements()[e] * 0.125f;
++                if (start+j*8+col+e > first+row) s = -INFINITY;
++                score[j].thread_elements()[e] = s;
++                mx = max(mx, s);
++            }
++        }
++        mx = max(mx, simd_shuffle_xor(mx, 1));
++        mx = max(mx, simd_shuffle_xor(mx, 8));
++        float next_max = max(maximum, mx);
++        float correction = fast::exp(maximum-next_max);
++        float block_sum = 0;
++        simdgroup_half8x8 probs[BK/8];
++        #pragma unroll
++        for (uint j=0; j<BK/8; ++j) {
++            #pragma unroll
++            for (uint e=0; e<2; ++e) {
++                float prob = fast::exp(score[j].thread_elements()[e]-next_max);
++                block_sum += prob;
++                probs[j].thread_elements()[e] = half(prob);
++            }
++        }
++        block_sum += simd_shuffle_xor(block_sum, 1);
++        block_sum += simd_shuffle_xor(block_sum, 8);
++        total = total*correction + block_sum;
++        maximum = next_max;
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            out[d].thread_elements()[0] *= correction;
++            out[d].thread_elements()[1] *= correction;
++        }
++        #pragma unroll
++        for (uint d=0; d<8; ++d) {
++            #pragma unroll
++            for (uint chunk=0; chunk<BK/16; ++chunk) {
++                // Limit half accumulation to sixteen keys, then accumulate in float.
++                simdgroup_half8x8 block;
++                block.thread_elements()[0] = 0;
++                block.thread_elements()[1] = 0;
++                #pragma unroll
++                for (uint jj=0; jj<2; ++jj) {
++                    uint j=chunk*2+jj;
++                    simdgroup_half8x8 b;
++                    simdgroup_load(b, V+base+(start+j*8)*64+d*8, 64);
++                    simdgroup_multiply_accumulate(block, probs[j], b, block);
++                }
++                out[d].thread_elements()[0] += float(block.thread_elements()[0]);
++                out[d].thread_elements()[1] += float(block.thread_elements()[1]);
++            }
++        }
++    }
++    #pragma unroll
++    for (uint d=0; d<8; ++d) {
++        out[d].thread_elements()[0] /= total;
++        out[d].thread_elements()[1] /= total;
++        simdgroup_store(out[d], O+base+first*64+d*8, 64);
++    }
++}
++"""
++_LIB = torch.mps.compile_shader(_SOURCE)
++
++
+ def kernel(q, k, v):
+-    T = q.size(-2)
+-    s = q @ k.transpose(-1, -2) / q.size(-1) ** 0.5
+-    s = s.masked_fill(torch.ones(T, T, dtype=torch.bool, device=q.device).triu(1), float("-inf"))
+-    e = (s - s.max(-1, keepdim=True).values).exp()
+-    return (e / e.sum(-1, keepdim=True)) @ v
++    if any(x.shape != (8, 8, 1024, 64) or x.dtype != torch.float32
++           or not x.is_contiguous() for x in (q, k, v)):
++        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
++    out = torch.empty_like(q)
++    _LIB.attention(q.half(), k.half(), v.half(), out, threads=(4096, 64, 1), group_size=(128, 1, 1))
++    return out
+
+tokens used
+87,963
+Final benchmark: **9.44 ms, 6.97× speedup**. Final check passed with relative error **7.05e-04**, below 2e-03. Updated LESSONS.md with all measured results.
+
+EDIT: kernel.py now computes causal attention with a fused Metal shader using float32 scores and softmax with half-precision value products accumulated in sixteen-key blocks.

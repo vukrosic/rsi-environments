@@ -1,0 +1,9 @@
+The workload is contiguous float32 causal attention on MPS: eight batches, eight heads, 1024 positions, 64 channels. Only time with bench.py. GPU sharing changes timings; compare absolute times and speedups and treat small differences cautiously.
+
+Use a fused Metal shader compiled at import. The best configuration uses 64 queries and 64 keys, eight SIMD groups, and 256 threads. Each SIMD group handles eight rows. Explicitly unroll constant matrix operations. Keep queries, float32 scores, half probabilities, and float32 output in registers. Stage inputs through four-element vector loads into separate shared half key and value buffers. Reuse key storage after loading queries. Use stable float32 online softmax, skip future tiles, and mask individual elements only on diagonal tiles. Matrix rows span four lanes; reductions need exclusive-or shuffle offsets one and eight.
+
+This round used ten benchmarks. Kernel times in milliseconds: float32 value accumulation, 3.68; sixteen-key half partial sums, 3.81; 32-key tiles, 3.77; direct query loads, 3.90; 128-query tiles, 4.63 during GPU contention; separate diagonal masking branch, 4.08; query prescaling and fast exponentials, 3.89; 32-key half partial sums, 3.69; final sixteen-key partial sums with prescaling, 3.71; prescaled float32 value accumulation, 3.86.
+
+Final speedup was 18.27 times against 67.74 milliseconds. Benchmark error was 0.0012. Thirty fresh checks passed with maximum error 0.001304; final check also passed. Thirty-two-key half accumulation reached 0.0019, too close to tolerance. Keep dot products and running outputs float32.
+
+Earlier rounds measured built-in attention around 17 milliseconds, or 10.5–11.7 with half inputs. Shared scores and missing unrolling were much slower. Preconversion and larger tiles generally regressed. Earlier optimized fused versions reached 3.88–4.10 milliseconds.

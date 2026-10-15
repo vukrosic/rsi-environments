@@ -1,0 +1,9 @@
+The workload is contiguous float32 causal attention: batch eight, eight heads, sequence length 1024, head size 64. Only benchmark through bench.py; shared GPU load varies. This round used all ten runs; reference times ranged from 66.89 to 73.63 milliseconds.
+
+The final kernel measured 7.08 milliseconds against 72.30 milliseconds, a 10.21 times speedup. Benchmark relative error was 0.00068 against the 0.002 tolerance.
+
+Use a fused Metal shader compiled once at import. The final configuration processes 128 queries and 64 keys per tile with 512 threads. Each SIMD group handles eight query rows. Load queries directly from float inputs into half matrix registers and retain them across key tiles. Cooperatively stage keys and values as half in shared memory. Accumulate matrix products and outputs in float32. Store scaled scores as half, overwrite them with half probabilities, and maintain stable online softmax maxima and denominators in float32. Skip wholly future tiles.
+
+Measured alternatives, in milliseconds: direct half buffers with shared float scores, 7.64; register scores and probabilities, 12.42; staging inputs with register scores, 12.13; shared half scores with 64 by 64 tiles, 7.29; 32 by 32 tiles, 7.70; unrolled output matrix loops, 7.16; float scores with query storage reused for values, 10.20; additionally unrolled reduction loops, 7.24; 128 by 32 tiles, 7.13.
+
+Earlier rounds reported built-in causal attention around 17 milliseconds in float32 and 10.5 milliseconds with half inputs. A different fused float-score implementation reached 4.99 milliseconds. Preserve float32 matrix accumulation: half dot-product accumulation and repeated half output accumulation previously exceeded tolerance. Half score storage after float accumulation passed comfortably here. Avoid judging tiny timing differences confidently.
