@@ -1,0 +1,73 @@
+{
+  "description": "Privacy projection of one selected returned retime and its search peak; fields are copied, not a new measurement.",
+  "kernel_file": "kernel.py",
+  "kernel_source_sha256": "55aaf38ed0adb3503ba58a8a6350834f5336721d9a30b265765a08636f3e5335",
+  "selected_retime": {
+    "ok": true,
+    "ref_ms": 0.932,
+    "kernel_ms": 0.418,
+    "speedup": 2.231,
+    "err": 7.5014305878085e-08,
+    "stage": "run",
+    "fault": null,
+    "isolation": "uid",
+    "baseline": "library",
+    "timer": "v3",
+    "task": "cross_entropy",
+    "trials": 5
+  },
+  "search_peak_for_same_source": {
+    "ok": true,
+    "ref_ms": 1.047,
+    "kernel_ms": 0.445,
+    "speedup": 2.352,
+    "err": 1.500438600032794e-07,
+    "stage": "run",
+    "fault": null,
+    "isolation": "uid",
+    "baseline": "library",
+    "timer": "v3",
+    "task": "cross_entropy",
+    "trials": 5
+  },
+  "source_binding": {
+    "retime_metadata_recorded_source_sha256": "55aaf38ed0adb3503ba58a8a6350834f5336721d9a30b265765a08636f3e5335",
+    "search_metadata_recorded_source_sha256": "55aaf38ed0adb3503ba58a8a6350834f5336721d9a30b265765a08636f3e5335",
+    "exact_search_and_retime_source_bytes_equal": true,
+    "source_bytes_match_both_metadata_hashes": true,
+    "private_receipt_filename_matches_retime_submission_metadata": true,
+    "private_search_receipt_filename_matches_search_submission_metadata": true,
+    "original_retime_receipt_sha256": "ed5389286d071780c30f373b0c1932d0c7a33d4a47d1ceae57cec539f0b6fad4",
+    "original_retime_metadata_sha256": "42bcffb476f4ba3300dbffccebab122f47b29dd2ca0cd9abf2ecaeaf1c6c1442",
+    "original_search_receipt_sha256": "6f47c2f9d7dbd0695072dfec11577a6421e393ff25c1f8d1f6b5ee329e893d20",
+    "original_search_metadata_sha256": "8a516829c6772a4083cadf57f6f488cae0cec26821332754ca0cfe9c8a49e4cd",
+    "original_trajectory_summary_sha256": "2092b33c71c3a38d023d59ff5e8858c4dc0e91895160849dd87cb455c7b4e04d",
+    "limit": "Local byte/hash and recorded submission-name correspondence only; raw receipt has no source hash and does not cryptographically authenticate execution."
+  },
+  "trajectory": {
+    "completed_search_attempts_reported": 10,
+    "resumed_with_prior_exposure": true,
+    "fresh_independent_trajectory": false,
+    "learning_or_promotion_claim": false
+  },
+  "reported_runtime_source_sha256": null,
+  "reported_runtime_dependency_versions": null,
+  "reported_device": "RTX A2000 6 GB, experiment context supplied by coordinator; selected receipt itself has no GPU identity",
+  "public_reproduction_reference": {
+    "repository": "https://github.com/vukrosic/rsi-environments",
+    "commit": "64bb64134faa0da501e1f7ca57b5b3054394ebf0",
+    "file_sha256": {
+      "bench3.py": "6893e9e2073ed9ec4ddbd5aa23bdda7bba6f3e3e5271aa5361c50fe2a345d09e",
+      "tasks.py": "6db63107b1e2718b6d4405fcf4525c8218977885cf563592e7a22a9754c7a394",
+      "README.md": "f5a1ac89f7d2cf4a723c44e13d32a209ddc5a3b6d4ee695bba15d1e36c424225"
+    },
+    "limit": "Known public source reference for the command; not a recovered runtime-source binding for the returned retime."
+  },
+  "removed_original_fields": [
+    "file",
+    "at",
+    "bench_s",
+    "job_id"
+  ],
+  "execution_during_candidate_preparation": false
+}
