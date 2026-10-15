@@ -24,6 +24,26 @@ The published alpha includes the three environment APIs, a shared Verifiers adap
 
 See [Features](FEATURES.md) for the development status and [VALIDATION.md](VALIDATION.md) for checks of the published code. GPU execution alone does not establish valid speed rewards or LLM learning. We have not demonstrated RL weight updates to an LLM or recursive self-improvement.
 
+## Training Improvement CUDA example
+
+An LLM submits training code. The environment runs the task model, independently
+scores its prediction loss, and returns an eligible reward to your RL trainer.
+The complete [Training Improvement checkout](examples/training-cuda-alpha4/README.md)
+contains the public-data preparation command, native reset/final API, and CUDA
+training and saved-weight audit example. You supply the outer LLM and trainer.
+
+From this repository, start with:
+
+```sh
+cd examples/training-cuda-alpha4
+```
+
+Follow that directory's README for the actual commands and compatibility limits.
+See the [dated verification page](examples/TRAINING-CUDA-VERIFICATION.md) for execution results and review status. The
+[alpha4 notes](examples/training-cuda-alpha4/ALPHA4.md) explain source submissions
+and eligible rewards. This standalone example has its own source manifest; it
+does not replace the other environments or the repository-wide manifest.
+
 ## Installation check
 
 Use Python **3.12** for the complete suite. The kernel package also supports Python 3.11+. This small CPU example checks installation and interaction:

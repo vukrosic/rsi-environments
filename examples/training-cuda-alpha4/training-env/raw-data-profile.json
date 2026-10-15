@@ -1,0 +1,47 @@
+{
+  "schema": "training-public-raw-profile-v1",
+  "workload_family": "tinystories-v2-gpt4-prefix100mb-data-v1",
+  "upstream": {
+    "repository": "roneneldan/TinyStories",
+    "revision": "f54c09fd23315a6f9c86f9dc80f725de7d8f9c64",
+    "license": "CDLA-Sharing-1.0",
+    "license_url": "https://cdla.dev/sharing-1-0/",
+    "publisher_card": "README.md",
+    "train": {
+      "upstream_filename": "TinyStoriesV2-GPT4-train.txt",
+      "full_bytes": 2227753162,
+      "full_sha256": "6418d412de72888f52b5142c761ac21a582f7d1166f0bfbdb5f03ccfdec90443",
+      "selected_bytes": 100000000,
+      "selection": "bytes 0-99999999; existing preparer discards trailing incomplete EOT story",
+      "cache_filename": "train-prefix.txt"
+    },
+    "validation": {
+      "upstream_filename": "TinyStoriesV2-GPT4-valid.txt",
+      "full_bytes": 22502601,
+      "full_sha256": "6874bae9a4c1a4e7edcf0e53b86c17817e9cf881fc75ff2368da457b80c0585d",
+      "selected_bytes": 22502601,
+      "selection": "entire file; existing preparer discards trailing incomplete EOT story",
+      "cache_filename": "validation.txt"
+    }
+  },
+  "runtime": {"python": "3.12.14", "numpy": "2.5.3", "tokenizers": "0.22.1"},
+  "source_sha256": {
+    "prepare.py": "5098bdeb4d6b2bcfc46da691f8050f5539ca16c01d2de65b4c5302656d73c55c",
+    "data.py": "b1da3937fbacf32521a6d731530bf065b95eff043f787f2d2ef98ac21f29dcfb",
+    "process_control.py": "3b82a12b80ae4d271569f5dbfb1806c748cb22fdef904f2e20ac74bd91afd9d0"
+  },
+  "tokenizer": {
+    "vocab_size": 4096,
+    "model": "BPE",
+    "pre_tokenizer": "ByteLevel(add_prefix_space=False)",
+    "decoder": "ByteLevel",
+    "special_tokens": ["<|endoftext|>"],
+    "initial_alphabet": "pre_tokenizers.ByteLevel.alphabet()",
+    "fit_selection": "every fourth complete training story, stories[::4]",
+    "rng_seed": null,
+    "byte_reproducibility": "unverified; preserve actual serialized tokenizer hash and do not assume identical retraining"
+  },
+  "validation_split": "whole stories, nearest token-count midpoint; unchanged prepare.py",
+  "limits": {"workflow_seconds": 300, "network_seconds": 90, "socket_seconds": 10, "threads": 2},
+  "accepted92_equivalent": false
+}

@@ -1,0 +1,6 @@
+# Observed successful source-staged A2000 lane, Python 3.12.14/Linux x86_64.
+# This is a receipt of installed versions, not a validated fresh-install recipe.
+# Do not replace provider Torch or alter existing Mac requirements automatically.
+torch==2.11.0+cu128
+numpy==2.5.3
+tokenizers==0.22.1

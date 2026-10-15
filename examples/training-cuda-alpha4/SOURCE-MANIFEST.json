@@ -1,0 +1,219 @@
+{
+  "cuda_example_verified": false,
+  "files": {
+    "ALPHA4.md": {
+      "bytes": 1767,
+      "sha256": "06003ea792ac91cb25f7e0c20b009e160d57d27185796ebc3c07ffc46bb24e0d"
+    },
+    "LICENSE": {
+      "bytes": 1067,
+      "sha256": "0a23312c92ece8837ade23285bc71665d5952f6ac5fee214e211424b9ae6831b"
+    },
+    "README.md": {
+      "bytes": 6012,
+      "sha256": "6ac1f35bdb994bf315ec539cb1d6144f1c3e8a6cbafbc9066b19cecfaec3184a"
+    },
+    "suite/__init__.py": {
+      "bytes": 85,
+      "sha256": "47634269f2734ae9bd976090f5a3b04fa435854a017fe52f2539e9108cb54822"
+    },
+    "suite/records.py": {
+      "bytes": 4188,
+      "sha256": "2034bf21cb07b41ba1332c26c3704fb83e08ef0781b2ea514159fc16c4adea2b"
+    },
+    "suite/resources.py": {
+      "bytes": 3620,
+      "sha256": "6406ebd44076feaa18bc6039497479cca113d6b5691c4dd4c4d8b7cb788d3e47"
+    },
+    "training-env/INSTALL.md": {
+      "bytes": 1918,
+      "sha256": "d2de3359c1c9ee8ff24a07175c1576ef26bed6a3f2697d452b18ebec8e93f425"
+    },
+    "training-env/PUBLIC-CUDA.md": {
+      "bytes": 7264,
+      "sha256": "c5acb9038898f3b213256bdcbf03c8336adfd57e39ce3040232020d0db09cd02"
+    },
+    "training-env/RAW-DATA.md": {
+      "bytes": 9285,
+      "sha256": "3112f7a40c2329f75c881ff48b321826e71afaea95e048535e123ba432489d31"
+    },
+    "training-env/README.md": {
+      "bytes": 371,
+      "sha256": "7a2a0a7ddeef460f0309bb08b230ec0333301e0fe28ee89bb314cce22032a2d6"
+    },
+    "training-env/RL-INTEGRATION.md": {
+      "bytes": 1914,
+      "sha256": "cd7e4c07cf874535da0057a02e389fd36fe604635e12d1da2c1468ed7bf1eaea"
+    },
+    "training-env/calibrate.py": {
+      "bytes": 3790,
+      "sha256": "b7b3b651c41e0c396441b649011231edbcb352c68a1a4781059f7a72b07aa83b"
+    },
+    "training-env/checks.py": {
+      "bytes": 2762,
+      "sha256": "227b5d50d11308a873654c0151ba4d949b2f77fa03660d910b9d62e842b26f74"
+    },
+    "training-env/data.py": {
+      "bytes": 13402,
+      "sha256": "b1da3937fbacf32521a6d731530bf065b95eff043f787f2d2ef98ac21f29dcfb"
+    },
+    "training-env/evaluate.py": {
+      "bytes": 9667,
+      "sha256": "702e94bd21c03f9576f7765965afd4a8323df0045bdd4d72a8f9cab205491069"
+    },
+    "training-env/grader.py": {
+      "bytes": 4118,
+      "sha256": "0ead8f7051c8f1c2d82cb7bf3f7080d0d49b6a76c239f9f6d35b418338582d60"
+    },
+    "training-env/interaction.py": {
+      "bytes": 13407,
+      "sha256": "41f224415d1731f0cfc3895e5c09fd1c9050d71da7aa13012f0ebe400f6c374e"
+    },
+    "training-env/prepare.py": {
+      "bytes": 13026,
+      "sha256": "5098bdeb4d6b2bcfc46da691f8050f5539ca16c01d2de65b4c5302656d73c55c"
+    },
+    "training-env/prepare_public_data.py": {
+      "bytes": 22414,
+      "sha256": "d4eee85e9a0fb38701aa01ff1a4bca9ba88930e1229e6e052161fc27093426da"
+    },
+    "training-env/process_control.py": {
+      "bytes": 7545,
+      "sha256": "3b82a12b80ae4d271569f5dbfb1806c748cb22fdef904f2e20ac74bd91afd9d0"
+    },
+    "training-env/protocol.py": {
+      "bytes": 1299,
+      "sha256": "68df6d00d156f0f71a37715f2751b3b6de410b9d692aca4c7153afc7a1c8df99"
+    },
+    "training-env/public_cuda_example-spec.json": {
+      "bytes": 4798,
+      "sha256": "c31472cfd9ec949dc90594273a96ed1cac588de63b3618a09c8dca8fea929374"
+    },
+    "training-env/public_cuda_example.py": {
+      "bytes": 20227,
+      "sha256": "78f2053aeb594dd927a6442636703fa57c5b59b29c6adfb0be9cd52f1bf23cb0"
+    },
+    "training-env/raw-data-profile.json": {
+      "bytes": 2173,
+      "sha256": "11817a2db577200ce5a6fba04a2fc1f1e538b7b4a1012da789c79321ba8b9e6d"
+    },
+    "training-env/recipe_pair.py": {
+      "bytes": 19534,
+      "sha256": "840fcc037a303c951a13510e939dd64ec0c5529fcabb071bd1650180ec469a69"
+    },
+    "training-env/recipe_pair_source/prepare_round.py": {
+      "bytes": 5367,
+      "sha256": "a4823dc6286cfed0fe4c27a7f4dc026cf2c7fe6d5d635b93c0fac3ec762370c0"
+    },
+    "training-env/recipe_pair_source/run_pair.py": {
+      "bytes": 7879,
+      "sha256": "5c1f6b0aa14a333f43e743f12ff6c9f83fbe3ddece0cc25863691dd29a9d4e9c"
+    },
+    "training-env/recipe_pair_source/suite/__init__.py": {
+      "bytes": 85,
+      "sha256": "47634269f2734ae9bd976090f5a3b04fa435854a017fe52f2539e9108cb54822"
+    },
+    "training-env/recipe_pair_source/suite/records.py": {
+      "bytes": 4506,
+      "sha256": "52fe74944aa5ab268c7627c0caaa704ec54a587db36fab03d7186010d9d63698"
+    },
+    "training-env/recipe_pair_source/suite/resources.py": {
+      "bytes": 3620,
+      "sha256": "6406ebd44076feaa18bc6039497479cca113d6b5691c4dd4c4d8b7cb788d3e47"
+    },
+    "training-env/recipe_pair_source/training-env/calibrate.py": {
+      "bytes": 3790,
+      "sha256": "b7b3b651c41e0c396441b649011231edbcb352c68a1a4781059f7a72b07aa83b"
+    },
+    "training-env/recipe_pair_source/training-env/challenger.py": {
+      "bytes": 12002,
+      "sha256": "717a9fa5e162594d6c0530e81373e1389129b57f330480191cc48dec272d3439"
+    },
+    "training-env/recipe_pair_source/training-env/checks.py": {
+      "bytes": 2762,
+      "sha256": "227b5d50d11308a873654c0151ba4d949b2f77fa03660d910b9d62e842b26f74"
+    },
+    "training-env/recipe_pair_source/training-env/data.py": {
+      "bytes": 13402,
+      "sha256": "b1da3937fbacf32521a6d731530bf065b95eff043f787f2d2ef98ac21f29dcfb"
+    },
+    "training-env/recipe_pair_source/training-env/evaluate.py": {
+      "bytes": 11002,
+      "sha256": "4bd535e61d8b38edc0d2f4f3d42eaa24046966114503e04050e3eb55da247bf7"
+    },
+    "training-env/recipe_pair_source/training-env/grader.py": {
+      "bytes": 4666,
+      "sha256": "f927a49eac8d56905107c91307092c9e01968e922f85e109a6ecce0cfdd858ac"
+    },
+    "training-env/recipe_pair_source/training-env/incumbent.py": {
+      "bytes": 12002,
+      "sha256": "25e854e360adf1d93dcd13744f9b13f1ae74962374f2dfd08733b3dbced5805f"
+    },
+    "training-env/recipe_pair_source/training-env/league_adapter.py": {
+      "bytes": 20329,
+      "sha256": "6edf27352163b043a76e74ca989b3646736c7a90dd41313353ae1b8ceff1ab08"
+    },
+    "training-env/recipe_pair_source/training-env/process_control.py": {
+      "bytes": 7545,
+      "sha256": "3b82a12b80ae4d271569f5dbfb1806c748cb22fdef904f2e20ac74bd91afd9d0"
+    },
+    "training-env/recipe_pair_source/training-env/protocol.py": {
+      "bytes": 1299,
+      "sha256": "68df6d00d156f0f71a37715f2751b3b6de410b9d692aca4c7153afc7a1c8df99"
+    },
+    "training-env/recipe_pair_source/training-env/starter.py": {
+      "bytes": 2628,
+      "sha256": "42b5161c57a4bed3ae7ebf9478e726542fcb7ba7d276f40fe4f9ef2bdce2cdd5"
+    },
+    "training-env/recipe_pair_source/training-env/tensor_hashes.py": {
+      "bytes": 2535,
+      "sha256": "a5b4d3691fca66258941cf4544ec3bb2fad6b50dca45026cdea484ca378b747e"
+    },
+    "training-env/recipe_pair_source/training-env/verify_cuda_episode.py": {
+      "bytes": 8465,
+      "sha256": "861fac9ba87e2d47d4d6d50cfaccf630062bb6ccec7a1c77ce1928c021a15ae4"
+    },
+    "training-env/recipe_pair_source/training-env/worker.py": {
+      "bytes": 7722,
+      "sha256": "9d7e52fd36a78ae8c31d1f0a7cb439c3a305a1727d3e9574c5fa29485fb4f588"
+    },
+    "training-env/requirements-cuda-observed.txt": {
+      "bytes": 292,
+      "sha256": "82dfb06452cce24f8e104cc83af140ecd837df3c5594339f3d5c16b51605f917"
+    },
+    "training-env/reward_control.py": {
+      "bytes": 6746,
+      "sha256": "4b39284a4163c6e34bf2c3aed1f1b38a97b2ca41871c0e1c56f04d4853e37fb5"
+    },
+    "training-env/starter.py": {
+      "bytes": 2628,
+      "sha256": "42b5161c57a4bed3ae7ebf9478e726542fcb7ba7d276f40fe4f9ef2bdce2cdd5"
+    },
+    "training-env/tensor_hashes.py": {
+      "bytes": 2214,
+      "sha256": "ab15c5040365cc762c75ee5c427701dfdfafed124354f6026da56da70c92308a"
+    },
+    "training-env/test_public_cuda_example.py": {
+      "bytes": 5257,
+      "sha256": "dce473c2085aeab1813c0e2a20330f9d91104287dc01dcda81afecb3297d6b20"
+    },
+    "training-env/test_public_data.py": {
+      "bytes": 10669,
+      "sha256": "1613b461491cd0d9f0ffdd77cc1ed833a4c1fd062bff2fcebc1f7cc844306f1c"
+    },
+    "training-env/verify_public_cuda_episode.py": {
+      "bytes": 8771,
+      "sha256": "294a29898b497b3e857bb137ea896a2f349a8709bfe97ffdd7b879a55aff34c6"
+    },
+    "training-env/worker.py": {
+      "bytes": 6424,
+      "sha256": "f49a74f639a1d5afe11d40d824068926d57108c98e13bf6a43f948e2da5bfb94"
+    }
+  },
+  "manifest_self_excluded": true,
+  "native_api_fresh_data_verified": false,
+  "outer_llm_training_demonstrated": false,
+  "runtime_verified": false,
+  "schema_version": 1,
+  "scope": "Training Improvement CUDA extracted source checkout only; training-env and suite siblings"
+}
