@@ -44,13 +44,14 @@ Round 1: 4 notes agents with no notes yet. Round N reads the joined notes of rou
 - 4 agents per group, one task.
 - A game ran on the same GPU during rounds 1–3: the unchanged code took 57.9–82.6 ms instead of 59.7 ms. Not yet
   re-timed on an idle GPU (`harness/kidle.py`).
-- The notes did not transfer: on cross_entropy and newton_schulz, attention notes did not beat the plain prompt.
+- The notes did not transfer: on cross_entropy and newton_schulz, attention notes did not beat the plain prompt
+  ([cross_entropy](../2026-10-14-notes-transfer-cross-entropy/), [newton_schulz](../2026-10-14-notes-transfer-newton-schulz/)).
 - The bench runs in the same process as the kernel; a later hardened bench closes reward hacks this one allows.
 
 ## Files
 
 - `agents/<group>-r<round>-<n>/`: each agent's `start.py`, `run1.py`…`run10.py` (the kernel at each bench run),
-  `final.py`, `results.jsonl` (every timing), `log.txt` (the agent's full transcript), `TRACE.md`, and the notes
-  given and written.
+  `final.py`, `results.jsonl` (every timing), `TRACE.md` (the agent's messages and code changes per run), and the notes given
+  and written. Raw transcripts were removed on 2026-10-15.
 - `harness/`: the scripts used (`kloop.py` launches and times, `bench.py` measures, `agent/` is the starting
   folder). They ran from a private repo where `loop.py` sat in `../loop/`; paths are as they ran on the Mac.
