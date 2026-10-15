@@ -15,6 +15,10 @@ Updated October 15, 2026. The latest release is [v0.1.0-alpha.4](https://github.
 | [Kernel optimization](kernel-env/README.md) | Numerical operations used in neural networks | Runtime, after numerical accuracy checks | Published tasks and API. Current v1 timing has unresolved deferred-output and predictable-input issues; speed rewards are unverified for RL. NVIDIA diagnostics ran, but timing also exceeded the stability threshold. |
 | Model compression | Weight representation or model execution | Runtime allocation, subject to a fixed quality limit | Not published yet. Apple and NVIDIA measurements ran; one NVIDIA candidate became the next incumbent. Independent reference setup and trainer integration are unfinished. |
 
+| Benchmark | Published checks |
+|---|---|
+| [Corrected NVIDIA kernel benchmark](kernel-timer/) | Library baselines and matched timing; 16 known fakes scored no gain on RTX A2000. LLM learning has not been evaluated. |
+
 ## Connecting a trainer
 
 1. Sample code from your LLM.
