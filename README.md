@@ -20,7 +20,11 @@ The model trained or evaluated inside a task is separate from the LLM your RL tr
 
 ## Release status
 
-The published alpha includes the three environment APIs, a shared Verifiers adapter and a bounded Apple GPU training check. NVIDIA training, inference and compression have run in development; portable setup and GPU trainer integration are still being verified. Kernel speed rewards have unresolved timing-boundary and predictable-input issues; do not use them for RL updates until fixed. Standard CUDA timing also failed the stability threshold on the tested NVIDIA host.
+The latest release, [v0.1.0-alpha.4](https://github.com/vukrosic/rsi-environments/releases/tag/v0.1.0-alpha.4), adds a standalone Training Improvement CUDA example. Two NVIDIA runs completed 500 training calls each; the native Python API returned a terminal training reward. Fresh dependency installation is still being verified. Earlier releases include the three environment APIs, a shared Verifiers adapter and a bounded Apple GPU training check.
+
+**Inference reward advisory — October 15, 2026:** the published inference Python API can classify some evaluator failures as invalid submitted code and return a trainable zero reward. Do not use its rewards for RL updates until the fix is independently verified. The alpha4 Training Improvement example uses a separate implementation and is unaffected.
+
+Kernel speed rewards have unresolved timing-boundary and predictable-input issues; do not use them for RL updates until fixed. Standard CUDA timing also failed the stability threshold on the tested NVIDIA host. Compression is not included in this release.
 
 See [Features](FEATURES.md) for the development status and [VALIDATION.md](VALIDATION.md) for checks of the published code. GPU execution alone does not establish valid speed rewards or LLM learning. We have not demonstrated RL weight updates to an LLM or recursive self-improvement.
 

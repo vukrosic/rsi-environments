@@ -4,14 +4,14 @@ An LLM submits code. The environment runs it within a fixed budget, measures the
 
 You provide the LLM and trainer. We provide the submission interface, execution controls, grader and reward records. Task models and datasets currently follow each environment's configuration; arbitrary replacements are not yet supported.
 
-Updated October 15, 2026. The published version is [v0.1.0-alpha.3](https://github.com/vukrosic/rsi-environments/releases/tag/v0.1.0-alpha.3). NVIDIA development results below are not yet included in that release.
+Updated October 15, 2026. The latest release is [v0.1.0-alpha.4](https://github.com/vukrosic/rsi-environments/releases/tag/v0.1.0-alpha.4). It adds the standalone Training Improvement CUDA example; other NVIDIA development results below are not included in that release.
 
 ## Environments
 
 | Environment | What the LLM changes | How it is scored | Current status |
 |---|---|---|---|
-| [Inference optimization](inference/README.md) | Model inference code | Latency, after output correctness checks | Published API. NVIDIA comparisons ran in development; the tested change had no verified speedup. Portable setup and terminal reward checks are unfinished. |
-| [Training improvement](training-env/README.md) | Model, optimizer or training-step code | Prediction loss within the training budget | Published API and bounded Apple GPU check. NVIDIA training and a recipe comparison ran in development. The tested recipe increased loss. Portable reproduction is unfinished. |
+| [Inference optimization](inference/README.md) | Model inference code | Latency, after output correctness checks | Published API has an error-classification bug: some evaluator failures become trainable zero rewards. Do not use these rewards for RL updates until the fix is verified. A development NVIDIA comparison had no verified speedup. |
+| [Training improvement](examples/training-cuda-alpha4/README.md) | Model, optimizer or training-step code | Prediction loss within the training budget | Alpha4 includes two verified 500-call NVIDIA runs, including a terminal native API reward. Saved-weight changes were audited in the example run. Fresh dependency installation remains unverified. |
 | [Kernel optimization](kernel-env/README.md) | Numerical operations used in neural networks | Runtime, after numerical accuracy checks | Published tasks and API. Current v1 timing has unresolved deferred-output and predictable-input issues; speed rewards are unverified for RL. NVIDIA diagnostics ran, but timing also exceeded the stability threshold. |
 | Model compression | Weight representation or model execution | Runtime allocation, subject to a fixed quality limit | Not published yet. Apple and NVIDIA measurements ran; one NVIDIA candidate became the next incumbent. Independent reference setup and trainer integration are unfinished. |
 
@@ -24,7 +24,7 @@ Updated October 15, 2026. The published version is [v0.1.0-alpha.3](https://gith
 
 Training improvement returns `exp(-loss)` for valid terminal submissions. Other objectives have their own scoring rules. Failed infrastructure, unreliable timing, smoke checks and evaluation-only episodes must be excluded from policy updates.
 
-See the [training API](training-env/RL-INTEGRATION.md) and [Verifiers integration guide](suite/integration/README.md). Framework compatibility checks have run; GPU terminal reward integration is still being validated. We have not demonstrated RL weight updates to an LLM or recursive self-improvement.
+Start with the [alpha4 training example](examples/training-cuda-alpha4/README.md) and its [dated CUDA verification](examples/TRAINING-CUDA-VERIFICATION.md). The [Verifiers integration guide](suite/integration/README.md) covers earlier framework compatibility checks; the alpha4 CUDA run used the native API. Inference and kernel reward advisories above apply. We have not demonstrated RL weight updates to an LLM or recursive self-improvement.
 
 ## Execution and results
 

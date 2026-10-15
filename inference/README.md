@@ -1,8 +1,14 @@
 # Inference optimization environment
 
-An RL coding-agent environment: a model submits inference code, reads execution
-feedback, and receives a terminal measured reward. An external RL trainer updates
-the coding agent’s weights. The fixed task model is pretrained SmolLM2-135M. The comparison baseline uses SDPA, a KV cache, and a
+**Reward advisory — October 15, 2026:** the published Python API can classify
+some evaluator failures as invalid submitted code and return a trainable zero
+reward. Do not use its rewards for RL updates until the fix is independently
+verified. See [the validation notice](../VALIDATION.md). The separate alpha4
+Training Improvement example is unaffected.
+
+An LLM submits inference code, reads execution feedback, and receives a terminal
+measured reward. An external RL trainer updates the LLM's weights. The fixed
+task model is pretrained SmolLM2-135M. The comparison baseline uses SDPA, a KV cache, and a
 last-token output projection. Every timed request is checked for correct logits
 and exact greedy tokens. Incorrect outputs receive zero reward.
 

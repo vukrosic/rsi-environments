@@ -1,5 +1,33 @@
 # Validation and evidence scope
 
+## Current inference reward advisory — October 15, 2026
+
+Static inspection of the published `inference/rl_environment.py` shows that
+action validation and evaluator execution share an exception handler. Evaluator
+`ValueError`, `TypeError`, `SyntaxError` or `UnicodeError` can therefore become
+an `invalid` result with a trainable zero reward, rather than an excluded
+infrastructure failure. Do not use this API's rewards for RL updates until the
+repair has passed independent review and execution checks. The working-source
+repair is not part of the published release. No new benchmark is claimed here.
+
+The alpha4 Training Improvement example uses a separate implementation and is
+unaffected. The kernel reward limitations described in [Features](FEATURES.md)
+also remain open.
+
+## v0.1.0-alpha.4 — October 15, 2026
+
+The standalone [Training Improvement example](examples/training-cuda-alpha4/README.md)
+completed two NVIDIA CUDA runs with 500 training calls each. The example run
+recorded changed saved weights and an independent loss audit. A separate native
+`TrainingEnv` reset/final episode returned a terminal, training-eligible reward.
+Source, controls, cleanup and actual results received independent review.
+
+See the [dated verification page](examples/TRAINING-CUDA-VERIFICATION.md) for
+runtime versions, losses, rewards, source hashes and exact evidence limits.
+Fresh dependency installation, outer LLM weight updates, held-out learning gains
+and outside adoption remain unverified. Historical sections below describe
+their original releases; alpha4 does not replace the other environment APIs.
+
 ## v0.1.0-alpha.3 — October 14, 2026
 
 One real TinyStories inner-GPT smoke completed on Apple MPS under the public
