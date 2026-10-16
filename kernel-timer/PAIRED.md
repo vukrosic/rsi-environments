@@ -1,6 +1,6 @@
 # Paired timer (pair3): candidate vs incumbent
 
-`bench3.py` scores one kernel against the library op. A league or king-of-the-hill reward needs something else:
+`bench3.py` scores one kernel against a fixed baseline (the fastest no-effort version of the task). A league or king-of-the-hill reward needs something else:
 is the **candidate** faster than the **current best kernel** (the incumbent), measured in the same job, on the same
 inputs, in an order that neither side controls? `pair3.py` answers that and writes one JSON receipt per job.
 

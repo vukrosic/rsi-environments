@@ -25,9 +25,9 @@ else
   echo '{"ok": false, "why": "not run: ISO=pgroup"}' > "$OUT/jail_test.json"
   jail=0
 fi
-for run in 1 2; do
+for run in 1 2; do  # start/ kernels call the library op, so they are timed against it (the default fastest baseline beats them)
   for t in swiglu softmax rmsnorm cross_entropy newton_schulz attention; do
-    line=$("$PY" -W ignore bench3.py "$t" "start/$t.py" --trials "${TRIALS:-15}" 2>>"$OUT/stderr.txt" | tail -1)
+    line=$("$PY" -W ignore bench3.py "$t" "start/$t.py" --baseline library --trials "${TRIALS:-15}" 2>>"$OUT/stderr.txt" | tail -1)
     echo "{\"run\": $run, \"task\": \"$t\", \"result\": ${line:-null}}" >> "$OUT/unchanged.jsonl"
   done
 done

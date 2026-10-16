@@ -175,3 +175,51 @@ TASKS = {
 # the reference's device, in the reference's dtype and shape, inputs is the tuple make() returned and want is ref(*inputs).
 # A task with a checker keeps its inputs on the device during the timed windows, so count them in its memory.
 CHECK = {}
+
+# The timing baseline bench3 uses by default (--baseline fastest): the fastest of four versions that need no kernel
+# work, measured on the RTX A2000 by bench3 (job 19, 2026-10-16, 10 trials): the library op, the eager reference, and
+# torch.compile of each (scored through AOTInductor, see compiled()). Against the library op alone, the reference
+# unchanged under torch.compile scored up to 7.3x (selective_scan) and 1.85x over F.cross_entropy, and the eager
+# reference beat SDPA 2.2x on decode_attention, so a policy was paid for a one-line wrapper. Tasks not listed use the
+# library op, or the reference if there is none. Another GPU or torch version needs its own measurement
+# (tools/fastest_baseline.py).
+FASTEST = {  # speedup of the chosen version over the library op (or the reference), one bench3-v3 run of 10 trials
+    "rmsnorm": "compile_reference",         # 1.08x over F.rms_norm (compiled library op 1.05x)
+    "softmax": "compile_reference",         # 1.06x over torch.softmax (compiled library op 1.04x)
+    "swiglu": "compile_library",            # 1.61x over F.silu(a) * b (compiled reference 1.56x, torch.jit.script 1.64x)
+    "cross_entropy": "compile_reference",   # 1.85x over F.cross_entropy (compiled library op 1.74x)
+    "newton_schulz": "compile_reference",   # 1.17x over the eager reference
+    "selective_scan": "compile_reference",  # 7.27x over the eager reference (torch.jit.script 4.59x)
+    "decode_attention": "reference",        # 2.55x over SDPA (compiled reference 2.19x): SDPA is slow at one query token
+    "gqa_attention": "compile_reference",   # 1.95x over SDPA with enable_gqa (compiled SDPA 1.93x)
+    "int4_matmul": "compile_reference",     # 3.18x over the eager reference
+}  # attention, attention_bwd, sliding_window_attention: SDPA stays fastest (compiled SDPA 0.96-1.00x)
+
+
+def baseline(name):
+    """(callable, label) of the timing baseline for a task: FASTEST's choice. A compiled choice is built once with
+    AOTInductor (torch.export, then inductor, ahead of time) and cached per task, kind, tasks.py, torch and GPU:
+    torch.compile at score time took over 6 minutes per process on selective_scan's 128-step loop."""
+    kind = FASTEST.get(name, "library" if name in BASELINE else "reference")
+    fn = BASELINE[name] if kind.endswith("library") else TASKS[name][0]
+    return (compiled(name, kind, fn) if kind.startswith("compile") else fn), kind
+
+
+def compiled(name, kind, fn):
+    import hashlib, os
+    from pathlib import Path
+    key = hashlib.sha256("|".join([Path(__file__).read_text(), name, kind, torch.__version__,
+                                   torch.cuda.get_device_name()]).encode()).hexdigest()[:16]
+    path = Path(os.environ.get("KERNEL_BASELINE_CACHE", Path.home() / ".cache" / "kernel-timer")) / f"{name}-{kind}-{key}.pt2"
+    if not path.exists():
+        class M(torch.nn.Module):
+            def forward(self, *a):
+                return fn(*a)
+        torch.manual_seed(0)
+        with torch.no_grad():
+            ep = torch.export.export(M(), TASKS[name][1]())
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(f".{os.getpid()}.tmp.pt2")
+        torch._inductor.aoti_compile_and_package(ep, package_path=str(tmp))
+        os.replace(tmp, path)  # another process building the same key at once leaves one whole file
+    return torch._inductor.aoti_load_package(str(path))

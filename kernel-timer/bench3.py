@@ -1,9 +1,10 @@
 """Score a kernel with the kernel in its own process, so it cannot reach the reference, the clock or the checker.
-  python bench3.py attention start/attention.py [--trials 15] [--baseline library|reference]
+  python bench3.py attention start/attention.py [--trials 15] [--baseline fastest|library|reference]
 Prints the speedup (baseline time / kernel time); the last line is JSON. A wrong answer scores 0.
 
-The baseline is PyTorch's own op for the task (tasks.BASELINE, e.g. SDPA for attention) where one exists, else the
-plain reference. Correctness is always checked against the plain reference in tasks.py.
+The baseline is the fastest version of the task that needs no kernel work, measured on this GPU (tasks.FASTEST): PyTorch's
+own op (tasks.BASELINE, e.g. SDPA for attention) or the plain reference, eager or under torch.compile. Wrapping the
+reference in a compiler therefore scores about 1.0x. Correctness is always checked against the plain reference.
 
 How a trial works (the bench process never imports the kernel):
 1. The bench draws a seed from os.urandom, makes 4 input sets from it, computes the reference's answers (untimed) and
@@ -13,8 +14,14 @@ How a trial works (the bench process never imports the kernel):
    arrive and the kernel process is frozen at once (SIGSTOP). A fingerprint needs every element of the output and the
    inputs are new each trial, so the kernel cannot finish its work after the clock stops or compute ahead.
    The baseline runs in a second process of the same kind, through the same window; the two alternate going first.
-3. The bench's own time for making inputs and fingerprints, and an empty round trip, are subtracted from both windows.
-   Each part is scored by its fastest trial, since other load on the machine only adds time.
+   Each side's timed window comes right after an untimed one of its own on other inputs (the first window after a
+   pause runs up to 50% slower). After every window the bench times a small matmul until the GPU reads idle, so work
+   one side left queued (on a side stream, after its sync) cannot run inside the other side's window; past 1 s that
+   side is faulted.
+3. The baseline process's own time for making inputs and fingerprints in that trial, and the fastest empty round trip
+   of either side, are subtracted from both windows. The score is the median over pairs of trials (one with
+   each side first) of the summed baseline time over the summed kernel time: the two windows of a trial share the GPU's
+   clock and memory state.
 4. Untimed: the kernel process copies its outputs into shared memory and is frozen again. The bench reads them
    twice, 30 ms apart; if anything changed, work went on after the copy: score 0.
 5. Every output must match the reference, and its fingerprint (recomputed by the bench) must match the one sent
@@ -28,7 +35,8 @@ import torch
 import tasks
 
 SETS = 4
-TIMER = "v3"  # in every verdict. v2 (2026-10-15 14:44 UTC): library baselines, timed in a second child process.
+TIMER = "v5"  # in every verdict. v5 (2026-10-16): each timed window right after an untimed one by the same side; median over trial pairs of the time ratio, the baseline process's own make +
+# fingerprint time subtracted. v4 (2026-10-16): fastest no-effort baseline (tasks.FASTEST). v2 (2026-10-15 14:44 UTC): library baselines, timed in a second child process.
 # v3 (2026-10-15 22:20 UTC): one ping floor for both sides; a non-positive time is an infrastructure failure, not clamped
 # the kernel process is frozen between trials; a process it starts in a new session would not be, so starting one is
 # not allowed (a fork in the same session is frozen with it)
@@ -274,7 +282,8 @@ def child(name, path, out_name, shape, kind, rseed):
                 f = prints(ys, r)
                 if os.environ.get("BENCH_DEBUG"):
                     print(f"  child: make {(t1-t0)*1e3:.2f} kernel {(t2-t1)*1e3:.2f} prints {(time.perf_counter()-t2)*1e3:.2f} ms", file=sys.stderr)
-                proto.write("ran " + json.dumps(f) + "\n")
+                # this process's own make + fingerprint time: the baseline's is subtracted from both windows
+                proto.write("ran " + json.dumps({"f": f, "over": t1 - t0 + time.perf_counter() - t2}) + "\n")
         except Exception as e:
             proto.write("error " + json.dumps(f"{type(e).__name__}: {e}"[:300]) + "\n")
 
@@ -313,14 +322,22 @@ def main():
     a.add_argument("--seed", type=int, default=0)  # kept for old callers; every trial's seeds come from os.urandom
     a.add_argument("--trials", type=int, default=15)
     a.add_argument("--timeout", type=float, default=60, help="seconds the kernel may take per trial")
-    a.add_argument("--baseline", choices=["library", "reference"], default="library",
-                   help="what the kernel's time is compared with: PyTorch's fused op (tasks.BASELINE) where one exists, "
-                        "or the plain reference. Correctness is always checked against the reference.")
+    a.add_argument("--baseline", choices=["fastest", "library", "reference"], default="fastest",
+                   help="what the kernel's time is compared with: the fastest no-effort version measured on this GPU "
+                        "(tasks.FASTEST: library op or reference, eager or under torch.compile), PyTorch's fused op "
+                        "(tasks.BASELINE) where one exists, or the plain reference. Correctness is always checked "
+                        "against the reference.")
+    ap = a
     a = a.parse_args()
+    if a.trials < 2:
+        ap.error("--trials must be at least 2: trials are scored in pairs, one with each side first")
     ref, make, tol = tasks.TASKS[a.name]
     check = getattr(tasks, "CHECK", {}).get(a.name)
-    base = tasks.BASELINE.get(a.name, ref) if a.baseline == "library" else ref
-    baseline = "library" if base is not ref else "reference"
+    if a.baseline == "fastest":
+        base, baseline = tasks.baseline(a.name)
+    else:
+        base = tasks.BASELINE.get(a.name, ref) if a.baseline == "library" else ref
+        baseline = "library" if base is not ref else "reference"
     perf = time.perf_counter
     hit = None if os.environ.get("BENCH_NO_SCAN") else re.search(ESCAPE, Path(a.path).read_text())
     if hit:
@@ -333,10 +350,19 @@ def main():
             yb = base(*x0).float()
             e = ((yb - y.float()).abs().max() / y.float().abs().max().clamp_min(1e-6)).item()
             if not (yb.shape == y.shape and e <= tol / 2):
-                fail(a.name, f"library baseline differs from the reference: relative error {e:.2e}", stage="setup")
+                fail(a.name, f"baseline {baseline} differs from the reference: relative error {e:.2e}", stage="setup")
     shape, kind = tuple(y.shape), json.dumps([str(y.dtype), y.device.type])
     rseed = int.from_bytes(os.urandom(8), "little") >> 1
     rw = weights(shape, y.device, rseed)
+    probe_x = torch.randn(512, 512, device=y.device)
+
+    def probe():
+        sync()
+        t = perf()
+        probe_x @ probe_x
+        sync()
+        return perf() - t
+    probe_idle = sorted(probe() for _ in range(30))[15]  # before any child exists: no one else's work can skew it
     x0 = y = yb = None  # three processes now hold inputs on the GPU: this one keeps only what it checks against
     global JAIL, ISOLATION
     try:
@@ -375,9 +401,18 @@ def main():
                 os.setgroups([])
                 os.setgid(jail.pw_gid)
                 os.setuid(jail.pw_uid)
+        pin = {int(c) for c in os.environ["BENCH_PIN"].split(",")} if os.environ.get("BENCH_PIN") else None
+        if pin and os.sched_getaffinity(0) - pin:
+            os.sched_setaffinity(0, os.sched_getaffinity(0) - pin)
+
+        def pre_k():
+            if pin:
+                os.sched_setaffinity(0, pin)
+            if pre:
+                pre()
         p = subprocess.Popen([sys.executable, "-W", "ignore", str(here / "bench3.py"), "--child", a.name, str(path), shm.name, json.dumps(shape), kind, str(rseed)],
                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1, start_new_session=True,
-                             cwd=here, env=env, preexec_fn=pre)
+                             cwd=here, env=env, preexec_fn=pre_k)
         if jail:
             freeze = jail.signal  # every process of the kernel's uid
         else:
@@ -388,12 +423,16 @@ def main():
         # SDPA attention at 0.75x on an A2000: the same op ran 9.2 ms per 4 calls here and 11.6 ms in the kernel's
         # process. It is our code, so it runs as this user in its own process group, never under the kernel's uid.
         basedir = Path(tempfile.mkdtemp())
-        (basedir / "baseline.py").write_text("import tasks\n" + (f"kernel = tasks.BASELINE[{a.name!r}]\n" if base is not ref
-                                                                 else f"kernel = tasks.TASKS[{a.name!r}][0]\n"))
+        # a compiled baseline compiles here, before "ready", so its first trial times the same code as the others
+        (basedir / "baseline.py").write_text(
+            "import torch, tasks\n"
+            + (f"kernel, _ = tasks.baseline({a.name!r})\n" if a.baseline == "fastest"
+               else f"kernel = tasks.BASELINE[{a.name!r}]\n" if base is not ref else f"kernel = tasks.TASKS[{a.name!r}][0]\n")
+            + f"with torch.no_grad():\n    torch.manual_seed(0)\n    kernel(*tasks.TASKS[{a.name!r}][1]())\n    torch.cuda.synchronize()\n")
         pb = subprocess.Popen([sys.executable, "-W", "ignore", str(Path(__file__).resolve().parent / "bench3.py"), "--child", a.name,
                                str(basedir / "baseline.py"), shm.name, json.dumps(shape), kind, str(rseed)],
                               stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1, start_new_session=True,
-                              cwd=Path(__file__).resolve().parent)
+                              cwd=Path(__file__).resolve().parent, preexec_fn=lambda: pin and os.sched_setaffinity(0, pin))
         freeze_b = lambda sig: os.killpg(pb.pid, sig)
 
         def ask(msg, want, timeout, proc=None, frz=None):
@@ -440,15 +479,33 @@ def main():
                 torch.cuda.empty_cache() if torch.cuda.is_available() else None  # the children need the memory
 
             def window(proc=None, frz=None):
+                # The first window after a pause ran up to 50% slower (newton_schulz 21 vs 14 ms); 20 ms of matmuls
+                # before it made every window slower (18-27 ms), and one untimed baseline window before the pair made
+                # the baseline 1-5% faster (the process that just ran is faster). So each side first runs one untimed
+                # window on other inputs, and is timed straight after it.
+                ask("ping", "pong", a.timeout, proc, frz)
+                ask(str(s ^ 0x5DEECE66D), "ran ", a.timeout, proc, frz)
+                drain(proc)
                 _, t_ping = ask("ping", "pong", a.timeout, proc, frz)  # waking the process and the pipe, also part of each window
                 sent, t_win = ask(str(s), "ran ", a.timeout, proc, frz)
+                drain(proc)
                 return sent, t_win, t_ping
+
+            def drain(proc):
+                """The GPU must be idle once a side is frozen: work it queued past its "ran" (a side stream the
+                fingerprint's sync does not wait for) would run into the other side's window."""
+                t0 = perf()
+                while not os.environ.get("BENCH_NO_DRAIN") and probe() > 3 * probe_idle + 2e-4:  # off only to test hacks
+                    if perf() - t0 > 1.0:
+                        if proc is pb:
+                            fail(a.name, "the GPU stayed busy for 1 s after the baseline's window", stage="run", fault="infrastructure")
+                        fail(a.name, "the GPU stayed busy for 1 s after the kernel's window: work queued past the clock", p)
             if trial % 2:  # alternate which side goes first, so neither always gets the GPU in the same state
-                _, t_ref, t_ping_b = window(pb, freeze_b)
+                sent_b, t_ref, t_ping_b = window(pb, freeze_b)
                 sent, t_kernel, t_ping = window()
             else:
                 sent, t_kernel, t_ping = window()
-                _, t_ref, t_ping_b = window(pb, freeze_b)
+                sent_b, t_ref, t_ping_b = window(pb, freeze_b)
             ask("copy", "copied", a.timeout)
             first = [x.clone() for x in mine]
             time.sleep(0.03)
@@ -458,7 +515,7 @@ def main():
                 back = [g.to(device=want[0].device).reshape(-1) for g in first]
                 got = prints(back, rw)
                 size = [(b * rw).square().sum().sqrt().item() for b in back]  # how big such a sum is
-            for f_sent, f_got, n in zip(json.loads(sent), got, size):
+            for f_sent, f_got, n in zip(json.loads(sent)["f"], got, size):
                 if not abs(f_sent - f_got) <= 1e-3 * n:  # float32 sums in another order differ by ~1e-5 of n
                     fail(a.name, f"the output copied after the clock stopped is not the one fingerprinted inside it (trial {trial})", p)
             for g, w, x, b in zip(first, want, sets or [None] * SETS, back):
@@ -472,9 +529,9 @@ def main():
                 worst = max(worst, err)
             sets = None
             if trial >= 3:
-                times.append((t_ref, t_kernel, t_make, t_print, t_ping, t_ping_b))
+                times.append((t_ref, t_kernel, t_make, t_print, t_ping, t_ping_b, json.loads(sent_b)["over"]))
                 if os.environ.get("BENCH_DEBUG"):
-                    print(f"trial {trial}: window {t_kernel*1e3:.2f} baseline window {t_ref*1e3:.2f} make {t_make*1e3:.2f} prints {t_print*1e3:.2f} ping {t_ping*1e3:.2f} / {t_ping_b*1e3:.2f} ms", file=sys.stderr)
+                    print(f"trial {trial}: window {t_kernel*1e3:.2f} baseline window {t_ref*1e3:.2f} make {t_make*1e3:.2f} prints {t_print*1e3:.2f} ping {t_ping*1e3:.2f} / {t_ping_b*1e3:.2f} baseline over {times[-1][6]*1e3:.2f} ms", file=sys.stderr)
     finally:
         if p and p.poll() is None:
             stop(p)
@@ -486,19 +543,25 @@ def main():
         shm.close()
         if stage:
             shutil.rmtree(stage, ignore_errors=True)
-    # other work on the machine only adds time, so each part's fastest trial is its true cost; a kernel cannot fake a
-    # fast trial, since every trial has new inputs and the fingerprint needs the whole output
-    t_ref, t_kernel, t_make, t_print, t_ping, t_ping_b = (min(c) for c in zip(*times))
-    # one ping floor for both sides: a kernel can slow its own pings (it owns its process's stdin) but not the
-    # baseline's, and subtracting its own ping read a kernel 1 ms per window faster than it ran
-    t_ping = min(t_ping, t_ping_b)
-    rm = (t_ref - t_make - t_print - t_ping) / SETS * 1000
-    km = (t_kernel - t_make - t_print - t_ping) / SETS * 1000
-    if not (rm > 0 and km > 0):  # never clamped: a clamp to ~0 read as a huge speedup
-        fail(a.name, f"non-positive time (reference {rm:.4f} ms, kernel {km:.4f} ms): the bench overhead exceeds the window",
+    # the two windows of a trial share the GPU's state (clock, memory), and the side that goes first after the idle gap
+    # runs ~10% slower (swiglu 20.0 vs 18.0 ms); the order alternates, so the score is the median over pairs of
+    # consecutive trials, one in each order, of sum(baseline) / sum(kernel). From each window comes off the baseline process's own make + fingerprint time in that trial
+    # (the bench's own make, measured after empty_cache, swung 3.5-5.5 ms on decode_attention while the children's
+    # held 3.0-3.6) and one ping floor for both sides: a kernel can slow its own pings (it owns its process's stdin)
+    # but not the baseline's, and subtracting its own ping read a kernel 1 ms per window faster than it ran
+    floor = min(min(t[4] for t in times), min(t[5] for t in times))
+    rs = [(t[0] - t[6] - floor) / SETS * 1000 for t in times]
+    ks = [(t[1] - t[6] - floor) / SETS * 1000 for t in times]
+    if not all(r > 0 and k > 0 for r, k in zip(rs, ks)):  # never clamped: a clamp to ~0 read as a huge speedup
+        fail(a.name, f"non-positive time (reference {min(rs):.4f} ms, kernel {min(ks):.4f} ms): the bench overhead exceeds the window",
              stage="run", fault="infrastructure")
-    print(f"{a.name}: correct (relative error {worst:.1e}). reference {rm:.2f} ms, kernel {km:.2f} ms, speedup {rm / km:.2f}x")
-    print(json.dumps({"ok": True, "ref_ms": round(rm, 3), "kernel_ms": round(km, 3), "speedup": round(rm / km, 3), "err": worst,
+    speedup = float(np.median([(r1 + r2) / (k1 + k2) for r1, r2, k1, k2 in zip(rs[::2], rs[1::2], ks[::2], ks[1::2])]))
+    rm, km = float(np.median(rs)), float(np.median(ks))
+    if os.environ.get("BENCH_DEBUG"):  # the v4 estimator: each part's fastest trial
+        t_ref, t_kernel, t_make, t_print, t_ping, t_ping_b, _ = (min(c) for c in zip(*times))
+        print(f"v4 estimator: {(t_ref - t_make - t_print - floor) / (t_kernel - t_make - t_print - floor):.3f}", file=sys.stderr)
+    print(f"{a.name}: correct (relative error {worst:.1e}). reference {rm:.2f} ms, kernel {km:.2f} ms, speedup {speedup:.2f}x")
+    print(json.dumps({"ok": True, "ref_ms": round(rm, 3), "kernel_ms": round(km, 3), "speedup": round(speedup, 3), "err": worst,
                       "stage": "run", "fault": None, "isolation": ISOLATION, "baseline": baseline, "timer": TIMER}))
 
 
