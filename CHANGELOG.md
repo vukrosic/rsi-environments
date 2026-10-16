@@ -2,7 +2,7 @@
 
 ## Unreleased — October 16, 2026
 
-- Added [arenas/](arenas/README.md): the list of 36 arenas with their status, the rules every arena follows ([SPEC.md](arenas/SPEC.md)) and 23 planned arenas with lessons from checking the first ones ([BACKLOG.md](arenas/BACKLOG.md)). Documentation only; the arena code is not in this release.
+- Added [arenas/](arenas/README.md): the list of 37 arenas with their status, the rules every arena follows ([SPEC.md](arenas/SPEC.md)) and 23 planned arenas with lessons from checking the first ones ([BACKLOG.md](arenas/BACKLOG.md)). Documentation only; the arena code is not in this release.
 
 ## v0.1.0-alpha.3 — October 14, 2026
 

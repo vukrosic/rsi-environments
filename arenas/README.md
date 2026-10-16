@@ -29,9 +29,10 @@ simulated GPU, kept for a rebuild on a real GPU (no new simulated arenas).
 | env-loss-design | the loss function and its gradient | building |
 | env-augment-policy | the data augmentation | building |
 | env-distill-target | the targets built from teacher logits | building |
-| env-pos-encoding | the positional encoding, scored on longer sequences | building |
-| env-moe-router | the mixture-of-experts router | building |
-| env-active-learning | which pool examples to label next | building |
+| env-pos-encoding | the positional encoding, scored on longer sequences | real |
+| env-moe-router | the mixture-of-experts router | real |
+| env-active-learning | which pool examples to label next | real |
+| env-test-time-compute | the answer-aggregation policy over N sampled solutions (accuracy at a fixed sample budget) | real |
 
 ## Algorithms and math (score = an exact count or exact error)
 
@@ -47,7 +48,7 @@ simulated GPU, kept for a rebuild on a real GPU (no new simulated arenas).
 | env-maxsat-heuristic | a MaxSAT heuristic (satisfied weight at a fixed query count) | real |
 | env-hash-design | a hash function (collisions and maximum bucket load) | real |
 | env-regex-synth | regex synthesis from examples (held-out accuracy, then length) | real |
-| env-symbolic-regression | formula search (extrapolation error plus a size penalty) | building |
+| env-symbolic-regression | formula search (extrapolation error plus a size penalty) | real |
 
 ## Systems and data (score = exact bytes, moves or ranking quality)
 
@@ -56,8 +57,8 @@ simulated GPU, kept for a rebuild on a real GPU (no new simulated arenas).
 | env-mem-planner | a static activation memory planner (peak bytes) | real |
 | env-text-codec | a lossless text and structured-data codec (compression ratio) | real |
 | env-retrieval-rank | a search ranker (nDCG@10) | real |
-| env-reg-alloc | a register allocator (executed loads, stores and moves) | building |
-| env-graph-partition | a balanced graph partitioner (cut weight) | building |
+| env-reg-alloc | a register allocator (executed loads, stores and moves) | real |
+| env-graph-partition | a balanced graph partitioner (cut weight) | real |
 | env-game-league | game players for 6 board games (win rate against the king) | real |
 
 ## Parked (simulated GPU, rebuild on a real GPU)

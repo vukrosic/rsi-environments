@@ -23,7 +23,7 @@ task turns out to have no headroom; write down why in the README.
   - a char LM
 - **Starter:** none (the identity).
 - **References:** BatchNorm, LayerNorm, RMSNorm, LayerNorm with a learned gain.
-- **Taken by:**
+- **Taken by:** in progress (2026-10-16)
 
 ### env-activation-fn
 - **Agent writes:** an elementwise activation and its derivative, numpy only. The parent checks the derivative by finite differences and checks it is finite on [-50, 50].
@@ -91,7 +91,7 @@ task turns out to have no headroom; write down why in the README.
   - uniform average
   - task arithmetic with a tuned scale
   - TIES-style trim and sign vote
-- **Taken by:**
+- **Taken by:** in progress (2026-10-16)
 
 ### env-lowrank-adapt
 - **Agent writes:** where to put low-rank adapters and with which ranks, under a parameter budget.
@@ -117,7 +117,7 @@ task turns out to have no headroom; write down why in the README.
   - a budget of 4 vs 64
 - **Starter:** first sample.
 - **References:** majority vote, verifier-filtered vote, weighted vote.
-- **Taken by:** in progress (2026-10-16)
+- **Taken by:** done (2026-10-16): env-test-time-compute is real
 
 ### env-reward-data
 - **Agent writes:** which preference pairs to label, from a pool, under a budget.
@@ -187,7 +187,7 @@ task turns out to have no headroom; write down why in the README.
   - asymmetric
 - **Starter:** nearest neighbor.
 - **References:** 2-opt, Or-opt, 2-opt with restarts.
-- **Taken by:**
+- **Taken by:** in progress (2026-10-16)
 
 ### env-bin-packing
 - **Agent writes:** a packer.
@@ -229,7 +229,7 @@ task turns out to have no headroom; write down why in the README.
   - conjugate gradient
   - conjugate gradient with Jacobi preconditioning
   - GMRES with restart
-- **Taken by:**
+- **Taken by:** in progress (2026-10-16)
 
 ### env-quadrature
 - **Agent writes:** an integration rule.
@@ -257,7 +257,7 @@ task turns out to have no headroom; write down why in the README.
   - Hamming code
   - random linear code with syndrome decoding
   - interleaving for bursts
-- **Taken by:**
+- **Taken by:** in progress (2026-10-16)
 
 ### env-proof-search
 - **Agent writes:** a search heuristic for a tiny equational or propositional prover. Every step is checked by the parent's kernel.
@@ -301,7 +301,7 @@ task turns out to have no headroom; write down why in the README.
   - smallest table first
   - greedy on estimated cardinality
   - dynamic programming over subsets with exact sample estimates
-- **Taken by:**
+- **Taken by:** in progress (2026-10-16)
 
 ### env-dedup
 - **Agent writes:** a near-duplicate detector for a corpus.
