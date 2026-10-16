@@ -25,10 +25,10 @@ simulated GPU, kept for a rebuild on a real GPU (no new simulated arenas).
 | env-weight-codec | a lossy codec for weight tensors | real |
 | env-spec-decode | the draft policy for speculative decoding | real |
 | env-tokenizer-league | the tokenizer trainer | real |
-| env-attn-pattern | the sparse attention mask under a budget | building |
+| env-attn-pattern | the sparse attention mask under a budget | real |
 | env-loss-design | the loss function and its gradient | building |
 | env-augment-policy | the data augmentation | building |
-| env-distill-target | the targets built from teacher logits | building |
+| env-distill-target | the targets built from teacher logits | real |
 | env-pos-encoding | the positional encoding, scored on longer sequences | real |
 | env-moe-router | the mixture-of-experts router | real |
 | env-active-learning | which pool examples to label next | real |
