@@ -40,7 +40,7 @@ Kernel timing failed the stability threshold on the current NVIDIA host. Further
 
 ## Easier research integration
 
-- [ ] Run the [public Linux software workflow](docs/LINUX-CHECKS.md) for packaging, reward-record handling and process cleanup without model downloads.
+- [x] Run the [public Linux software workflow](docs/LINUX-CHECKS.md) for packaging, reward-record handling and process cleanup without model downloads.
 - [x] Add structured issue forms for installation failures and trainer integration requests.
 
 - [x] Publish a [starting guide](docs/GETTING-STARTED.md) that separates runnable examples, tested runtimes and trainer responsibilities.

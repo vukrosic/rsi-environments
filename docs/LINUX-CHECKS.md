@@ -66,3 +66,7 @@ than stubbed or reported as tested.
 Adding this workflow does not establish a passing Linux result. A successful
 GitHub run at a specific commit is the evidence; a prepared YAML file or local
 source inspection is not. A red run must remain a failure until investigated.
+
+## First hosted result
+
+[Run 38856915979](https://github.com/vukrosic/rsi-environments/actions/runs/38856915979) passed on Ubuntu 24.04 / Python 3.12.15 at commit `751fc99c7897e987b8f639a969e067508e638ccb`. The job completed in 17 seconds, including the source build/install and isolated CLI checks above. This establishes only the listed software behavior. Subsequent commits have their own workflow results.
