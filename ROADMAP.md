@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated October 15, 2026. See [Features](FEATURES.md) for what is published and what has run in development.
+Updated October 16, 2026. See [Features](FEATURES.md) for what is published and what has run in development.
 
 ## Published: Training Improvement alpha4
 
@@ -20,10 +20,12 @@ fresh dependency installation.
 - [ ] Verify source loading on CPU, training on a supported GPU and installation in a fresh isolated NVIDIA runtime without private dependency overlays.
 - [ ] Publish an offline CLI that checks saved receipts and source hashes without rerunning training.
 
-The bundle and offline CLI are prepared in source. Their new CPU checks, the
-CLI's check against saved receipts and the bundle's GPU run remain pending.
-Publish the tested setup recipe with those results; alpha4's existing runs do
-not verify this new bundle or a fresh installation.
+The new bundle is prepared, but its CPU execution, supported-GPU run and fresh
+isolated NVIDIA installation remain pending. Fifteen synthetic
+offline CLI checks passed, but the CLI is not published and the actual-receipt offline
+phase has not run. Three direct-store metadata fixture controls passed, but they
+do not establish a native API episode or published direct-store API. Alpha4's
+existing runs do not verify this new bundle or a fresh installation.
 
 ## Other environment releases
 
@@ -38,6 +40,9 @@ Kernel timing failed the stability threshold on the current NVIDIA host. Further
 
 ## Easier research integration
 
+- [ ] Run the [public Linux software workflow](docs/LINUX-CHECKS.md) for packaging, reward-record handling and process cleanup without model downloads.
+- [x] Add structured issue forms for installation failures and trainer integration requests.
+
 - [x] Publish a [starting guide](docs/GETTING-STARTED.md) that separates runnable examples, tested runtimes and trainer responsibilities.
 - [ ] Publish and CPU-check a direct `Episode` API that uses the caller's explicitly supplied, trusted configured store.
 - [ ] Verify a generated-source callback submission on GPU and document the native result returned to the caller's trainer.
@@ -46,9 +51,10 @@ Kernel timing failed the stability threshold on the current NVIDIA host. Further
 - [ ] Show workload, precision, memory metric, quality limit and budget before a run.
 - [ ] Provide machine-readable result summaries for experiment tracking.
 
-The direct-store binding is prepared in source; its CPU checks remain pending.
-The callback's software checks have passed, but its native GPU episode remains
-unverified.
+The direct-store binding is prepared in source. Its three metadata fixture
+controls passed, but these controls do not establish the published API or a
+native episode. The callback's software checks have passed, but its native GPU
+episode remains unverified.
 
 ## Competing against the best result
 

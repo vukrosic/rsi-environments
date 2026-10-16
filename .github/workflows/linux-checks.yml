@@ -1,0 +1,121 @@
+name: Linux source and package checks
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/linux-checks.yml'
+      - 'docs/LINUX-CHECKS.md'
+      - 'inference/**'
+      - 'kernel-env/**'
+      - 'suite/records.py'
+      - 'suite/resources.py'
+      - 'suite/__init__.py'
+      - 'suite/tests/test_shared.py'
+      - 'training-env/process_control.py'
+      - 'training-env/reproduction_check.py'
+      - 'training-env/tests/test_process_control.py'
+      - 'training-env/tests/test_reproduction_package.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-and-package:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+      PIP_NO_CACHE_DIR: '1'
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+      CUDA_VISIBLE_DEVICES: ''
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+    steps:
+      - name: Check out public source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          fetch-tags: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      - name: Create a small isolated control environment
+        timeout-minutes: 3
+        run: |
+          python -m venv "$RUNNER_TEMP/control-env"
+          timeout --signal=TERM --kill-after=10s 120s \
+            "$RUNNER_TEMP/control-env/bin/python" -m pip install \
+            --only-binary=:all: pytest==8.4.2
+
+      - name: Check shared record and lease contracts and kernel source packaging
+        timeout-minutes: 3
+        run: |
+          timeout --signal=TERM --kill-after=10s 120s \
+            "$RUNNER_TEMP/control-env/bin/python" -m pytest -q \
+            suite/tests/test_shared.py kernel-env/tests/test_packaging.py
+
+      - name: Check inference wheel layout without ML dependencies
+        timeout-minutes: 3
+        working-directory: inference
+        run: |
+          timeout --signal=TERM --kill-after=10s 120s \
+            "$RUNNER_TEMP/control-env/bin/python" -m pytest -q \
+            tests/test_package_layout.py
+
+      - name: Check training process cleanup and source archive validation
+        timeout-minutes: 3
+        working-directory: training-env
+        run: |
+          timeout --signal=TERM --kill-after=10s 120s \
+            "$RUNNER_TEMP/control-env/bin/python" -m pytest -q \
+            tests/test_process_control.py tests/test_reproduction_package.py
+
+      - name: Install the public inference source without ML dependencies
+        timeout-minutes: 3
+        run: |
+          python -m venv "$RUNNER_TEMP/package-env"
+          timeout --signal=TERM --kill-after=10s 120s \
+            "$RUNNER_TEMP/package-env/bin/python" -m pip install \
+            --no-deps --no-build-isolation "$GITHUB_WORKSPACE/inference"
+
+      - name: Check installed namespace metadata and CLI outside the checkout
+        timeout-minutes: 1
+        working-directory: ${{ runner.temp }}
+        run: |
+          timeout --signal=TERM --kill-after=5s 30s \
+            "$RUNNER_TEMP/package-env/bin/python" -I - <<'PY'
+          import importlib.metadata
+          import importlib.util
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          import inference_env
+          import inference_env.cli
+
+          assert Path(inference_env.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
+          assert inference_env.__version__ == importlib.metadata.version("vuk-rsi-inference")
+          assert callable(inference_env.cli.main)
+          assert importlib.util.find_spec("torch") is None
+          for name in ("scorer", "assets", "worker"):
+              assert importlib.util.find_spec(name) is None, name
+          executable = str(Path(sys.executable).with_name("rsi-inference"))
+          version = subprocess.run([executable, "--version"], check=True, capture_output=True, text=True, timeout=10)
+          assert version.stdout.strip() == f"rsi-inference {inference_env.__version__}"
+          help_result = subprocess.run([executable, "--help"], check=True, capture_output=True, text=True, timeout=10)
+          assert "generate-assets" in help_result.stdout
+          print(f"Installed namespace, metadata and CLI checked: {version.stdout.strip()}")
+          PY

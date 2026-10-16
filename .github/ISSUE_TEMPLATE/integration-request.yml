@@ -1,0 +1,49 @@
+name: Trainer integration request
+description: Describe an LLM trainer you want to connect to an environment.
+title: "[Integration]: "
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Share only sanitized details. Do not paste credentials, private data,
+        host addresses, or full private paths. Some environments fix their task
+        model and data; arbitrary replacements may not be supported. A request
+        does not imply current compatibility.
+
+  - type: input
+    id: environment
+    attributes:
+      label: Intended environment
+      description: Name the environment and task you want to use.
+      placeholder: Environment and task
+    validations:
+      required: true
+
+  - type: input
+    id: trainer
+    attributes:
+      label: Trainer and interface
+      description: Name the trainer/framework and how it expects to submit code, receive results or rewards, and handle invalid versus infrastructure-failure outcomes.
+      placeholder: Trainer/framework and expected API or interface
+    validations:
+      required: true
+
+  - type: textarea
+    id: task-requirements
+    attributes:
+      label: Task model and data requirements
+      description: Describe required model, dataset, configuration, or task variation, and whether the environment's current fixed task setup would work for you.
+      placeholder: Model/data needs and required task variations
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Intended workflow
+      description: Give a short example of the episode loop or integration outcome you need. Link public documentation or code if useful.
+      placeholder: What the trainer should send and what it should consume
+      render: text
+    validations:
+      required: true

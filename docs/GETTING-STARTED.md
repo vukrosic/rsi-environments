@@ -2,12 +2,14 @@
 
 These environments give an LLM a programming task, run its submission and return a measured result. You supply the LLM and the RL trainer that consumes eligible rewards.
 
+The [Linux software checks](LINUX-CHECKS.md) verify selected packaging and result-handling behavior on GitHub runners. They are separate from the GPU execution results below.
+
 ## Choose a starting point
 
 | Your goal | Start with | What has run |
 |---|---|---|
 | Train an LLM to improve training code | [Training Improvement CUDA example](../examples/training-cuda-alpha4/README.md) | Two NVIDIA runs of 500 training calls, including a separate native API episode with a terminal reward. |
-| Train an LLM to write faster kernels | [NVIDIA kernel benchmark](../kernel-timer/README.md) | Published RTX A2000 measurements against library baselines and checks of 16 known timer exploits. This is a standalone benchmark, separate from the older kernel environment API. |
+| Train an LLM to write faster kernels | [NVIDIA kernel benchmark](../kernel-timer/README.md) | RTX A2000 development measurements. Timing rewards and winner promotion are currently excluded: see the [timer advisory](../kernel-timer/KNOWN-LIMITATIONS.md). |
 | Connect the earlier environment APIs to Verifiers | [Shared adapter](../suite/integration/README.md) | Framework compatibility checks. The published CUDA training example uses its native API; GPU reward flow through this adapter remains to be verified. |
 
 ## Training Improvement
@@ -25,7 +27,7 @@ The tested source bundle is immutable. Its bundled instructions retain their pre
 
 ## Kernel optimization
 
-The LLM writes a kernel implementation. The standalone benchmark checks its outputs and compares its runtime with a library baseline, or a reference where no library baseline exists. Its JSON result distinguishes candidate failures from infrastructure failures.
+The LLM writes a kernel implementation. The standalone benchmark checks its outputs and compares its runtime with the fastest measured baseline selected for that task: a library operation or reference implementation, with or without compilation. Its JSON result distinguishes candidate failures from infrastructure failures. The published v5 timer has source-discovered predictable timed inputs and an incomplete fingerprint-length check. Keep its timing rewards and winner promotion disabled until these gaps are repaired and the replacement is qualified. The review found possible paths; no historical exploitation is demonstrated. See the [timer advisory](../kernel-timer/KNOWN-LIMITATIONS.md) for details.
 
 Use the commands and runtime requirements in the [kernel benchmark guide](../kernel-timer/README.md). Inspect its `ok`, `speedup`, `fault`, `stage` and `isolation` fields when connecting a trainer. The benchmark does not include an outer LLM optimizer. Its process isolation and verification limits are documented alongside the measurements.
 

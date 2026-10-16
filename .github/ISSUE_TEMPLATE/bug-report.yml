@@ -1,0 +1,68 @@
+name: Installation or episode failure
+description: Report an installation problem or a reproducible environment episode failure.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Share only sanitized excerpts. Do not paste credentials, private data,
+        host addresses, or full private paths.
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Name the environment and task, for example Training Improvement or NVIDIA kernel benchmark.
+      placeholder: Environment and task
+    validations:
+      required: true
+
+  - type: input
+    id: revision
+    attributes:
+      label: Exact source revision
+      description: Commit SHA or release/source bundle identifier used for this run.
+      placeholder: Full commit SHA
+    validations:
+      required: true
+
+  - type: input
+    id: runtime
+    attributes:
+      label: OS, Python, and accelerator
+      description: Include versions or model where known; say CPU if no accelerator was used.
+      placeholder: OS/version; Python version; CPU or accelerator/model
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Command and minimal example
+      description: Include the command, relevant candidate snippet, and dependency versions. Add seed/profile when applicable.
+      placeholder: Commands and the smallest sanitized example that reproduces the issue
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: records
+    attributes:
+      label: Expected and observed result
+      description: Include the expected behavior and the observed result record or sanitized excerpt (for example status, reward, fault, stage, or isolation fields).
+      placeholder: What you expected; what happened; relevant record fields
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: failure-kind
+    attributes:
+      label: Failure type, if known
+      description: Choose candidate failure for invalid or incorrect submitted code, infrastructure failure for setup/runtime services or hardware, or unknown if unclear.
+      options:
+        - Unknown
+        - Candidate failure
+        - Infrastructure failure
+    validations:
+      required: false
