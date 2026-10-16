@@ -14,6 +14,8 @@ An LLM submits code. The environment executes it, measures the result and return
 | [Training improvement](training-env/README.md) | Model, optimizer or training step | Lower prediction loss within the task budget |
 | [Kernel optimization](kernel-env/README.md) | Numerical operations | Lower runtime while preserving accuracy |
 
+**Arenas (in development):** 36 smaller CPU environments where each reward is measured against the current best submission for that task, never a fixed target. The code is not released yet; [the arena list, spec and backlog](arenas/README.md) are public.
+
 Model compression is in development and is not included in the current alpha. It measures runtime allocation subject to a fixed model-quality limit.
 
 The model trained or evaluated inside a task is separate from the LLM your RL trainer updates. Each environment currently specifies its task model and data; configuring arbitrary replacements is planned.
