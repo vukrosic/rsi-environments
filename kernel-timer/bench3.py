@@ -14,8 +14,9 @@ How a trial works (the bench process never imports the kernel):
    arrive and the kernel process is frozen at once (SIGSTOP). A fingerprint needs every element of the output and the
    inputs are new each trial, so the kernel cannot finish its work after the clock stops or compute ahead.
    The baseline runs in a second process of the same kind, through the same window; the two alternate going first.
-   Each side's timed window comes right after an untimed one of its own on other inputs (the first window after a
-   pause runs up to 50% slower). After every window the bench times a small matmul until the GPU reads idle, so work
+   Each side's timed window comes right after an untimed one of its own on inputs from a second, independent seed
+   (the first window after a pause runs up to 50% slower; a seed derived from the timed one would let a kernel
+   compute the timed outputs during the untimed window). After every window the bench times a small matmul until the GPU reads idle, so work
    one side left queued (on a side stream, after its sync) cannot run inside the other side's window; past 1 s that
    side is faulted.
 3. The baseline process's own time for making inputs and fingerprints in that trial, and the fastest empty round trip
@@ -25,9 +26,10 @@ How a trial works (the bench process never imports the kernel):
 4. Untimed: the kernel process copies its outputs into shared memory and is frozen again. The bench reads them
    twice, 30 ms apart; if anything changed, work went on after the copy: score 0.
 5. Every output must match the reference, and its fingerprint (recomputed by the bench) must match the one sent
-   inside the clock: an output finished after the clock stopped scores 0.
+   inside the clock: an output finished after the clock stopped scores 0. The kernel's report must hold 4 finite
+   fingerprints and a finite overhead >= 0, else it scores 0.
 Known hacks are in hacks/ (python hacks/run.py --bench bench3.py)."""
-import argparse, json, mmap, os, re, select, shutil, signal, subprocess, sys, tempfile, time
+import argparse, json, math, mmap, os, re, select, shutil, signal, subprocess, sys, tempfile, time
 from pathlib import Path
 from multiprocessing import shared_memory
 import numpy as np
@@ -35,7 +37,8 @@ import torch
 import tasks
 
 SETS = 4
-TIMER = "v5"  # in every verdict. v5 (2026-10-16): each timed window right after an untimed one by the same side; median over trial pairs of the time ratio, the baseline process's own make +
+TIMER = "v5.1"  # in every verdict. v5.1 (2026-10-16): untimed window on an independent seed (v5 derived it from the timed seed), kernel reports validated.
+# v5 (2026-10-16): each timed window right after an untimed one by the same side; median over trial pairs of the time ratio, the baseline process's own make +
 # fingerprint time subtracted. v4 (2026-10-16): fastest no-effort baseline (tasks.FASTEST). v2 (2026-10-15 14:44 UTC): library baselines, timed in a second child process.
 # v3 (2026-10-15 22:20 UTC): one ping floor for both sides; a non-positive time is an infrastructure failure, not clamped
 # the kernel process is frozen between trials; a process it starts in a new session would not be, so starting one is
@@ -152,7 +155,7 @@ class Outputs:
         else:
             self.shm, self.dir = None, tempfile.mkdtemp()
             path = os.path.join(self.dir, "out")
-            with open(path, "wb") as f:
+            with os.fdopen(os.open(path, os.O_CREAT | os.O_EXCL | os.O_RDWR, 0o600), "wb") as f:  # 0600 under any umask
                 f.truncate(size)
             if jail:
                 os.chmod(self.dir, 0o711)
@@ -370,14 +373,16 @@ def main():
     except RuntimeError as e:
         fail(a.name, str(e), stage="setup")
     ISOLATION = "uid" if jail else "pgroup"
-    shm = Outputs(max(1, int(np.prod(shape, dtype=np.int64)) * 4 * SETS), jail)
-    p, pb, stage, basedir = None, None, None, None
+    p, pb, shm, made, basedir = None, None, None, [], None
     try:
+        shm = Outputs(max(1, int(np.prod(shape, dtype=np.int64)) * 4 * SETS), jail)
+        made.append(shm)  # closed in finally even if a later setup step fails
         mine = slots(shm.buf, shape, json.loads(kind)[0])
         here, path, env, pre = Path(__file__).resolve().parent, Path(a.path).resolve(), dict(os.environ), None
         if jail:
             # the kernel user cannot read root's checkout: bench, tasks and the kernel's folder go to a readable copy
             stage = Path(tempfile.mkdtemp())
+            made.append(stage)  # removed in finally even if staging fails half way
             for f in ("bench3.py", "tasks.py"):
                 shutil.copy(here / f, stage / f)
             shutil.copytree(path.parent, stage / "sol", ignore=shutil.ignore_patterns("__pycache__"))
@@ -462,6 +467,7 @@ def main():
         worst, times = 0.0, []
         for trial in range(3 + a.trials):  # 3 warm-up trials
             s = int.from_bytes(os.urandom(8), "little") >> 1
+            s_warm = int.from_bytes(os.urandom(8), "little") >> 1  # independent: nothing in the untimed window predicts s
             with torch.no_grad():
                 sync()
                 t = perf()
@@ -484,7 +490,7 @@ def main():
                 # the baseline 1-5% faster (the process that just ran is faster). So each side first runs one untimed
                 # window on other inputs, and is timed straight after it.
                 ask("ping", "pong", a.timeout, proc, frz)
-                ask(str(s ^ 0x5DEECE66D), "ran ", a.timeout, proc, frz)
+                ask(str(s_warm), "ran ", a.timeout, proc, frz)
                 drain(proc)
                 _, t_ping = ask("ping", "pong", a.timeout, proc, frz)  # waking the process and the pipe, also part of each window
                 sent, t_win = ask(str(s), "ran ", a.timeout, proc, frz)
@@ -506,6 +512,15 @@ def main():
             else:
                 sent, t_kernel, t_ping = window()
                 sent_b, t_ref, t_ping_b = window(pb, freeze_b)
+            try:  # the report is the kernel's: a short or non-finite list would skip or pass the fingerprint check
+                r = json.loads(sent)
+                fs, over_k = r["f"], r["over"]
+                num = lambda v: type(v) in (int, float) and math.isfinite(v)
+                good = isinstance(fs, list) and len(fs) == SETS and all(map(num, fs)) and num(over_k) and over_k >= 0
+            except (ValueError, KeyError, TypeError):
+                good = False
+            if not good:
+                fail(a.name, f"malformed report (trial {trial}): want {SETS} finite fingerprints and a finite overhead", p)
             ask("copy", "copied", a.timeout)
             first = [x.clone() for x in mine]
             time.sleep(0.03)
@@ -515,7 +530,7 @@ def main():
                 back = [g.to(device=want[0].device).reshape(-1) for g in first]
                 got = prints(back, rw)
                 size = [(b * rw).square().sum().sqrt().item() for b in back]  # how big such a sum is
-            for f_sent, f_got, n in zip(json.loads(sent)["f"], got, size):
+            for f_sent, f_got, n in zip(fs, got, size):  # all SETS: the report's length was checked
                 if not abs(f_sent - f_got) <= 1e-3 * n:  # float32 sums in another order differ by ~1e-5 of n
                     fail(a.name, f"the output copied after the clock stopped is not the one fingerprinted inside it (trial {trial})", p)
             for g, w, x, b in zip(first, want, sets or [None] * SETS, back):
@@ -540,9 +555,11 @@ def main():
             pb.wait()
         if basedir:
             shutil.rmtree(basedir, ignore_errors=True)
-        shm.close()
-        if stage:
-            shutil.rmtree(stage, ignore_errors=True)
+        for o in made:  # output memory and jail copies
+            if isinstance(o, Outputs):
+                o.close()
+            else:
+                shutil.rmtree(o, ignore_errors=True)
     # the two windows of a trial share the GPU's state (clock, memory), and the side that goes first after the idle gap
     # runs ~10% slower (swiglu 20.0 vs 18.0 ms); the order alternates, so the score is the median over pairs of
     # consecutive trials, one in each order, of sum(baseline) / sum(kernel). From each window comes off the baseline process's own make + fingerprint time in that trial
@@ -556,6 +573,8 @@ def main():
         fail(a.name, f"non-positive time (reference {min(rs):.4f} ms, kernel {min(ks):.4f} ms): the bench overhead exceeds the window",
              stage="run", fault="infrastructure")
     speedup = float(np.median([(r1 + r2) / (k1 + k2) for r1, r2, k1, k2 in zip(rs[::2], rs[1::2], ks[::2], ks[1::2])]))
+    if not math.isfinite(speedup):
+        fail(a.name, f"speedup {speedup} is not finite", stage="run", fault="infrastructure")
     rm, km = float(np.median(rs)), float(np.median(ks))
     if os.environ.get("BENCH_DEBUG"):  # the v4 estimator: each part's fastest trial
         t_ref, t_kernel, t_make, t_print, t_ping, t_ping_b, _ = (min(c) for c in zip(*times))

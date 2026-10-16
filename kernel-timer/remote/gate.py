@@ -1,6 +1,8 @@
 """Pass/fail for remote/bench3_check.sh's raw output. Exit 0 only if every expected row is present and passes:
 12 unchanged rows (6 tasks x 2 runs), each ok, finite, 0.9-1.1x, with the expected isolation label; both hack runs
-list exactly the expected hacks, each parsed, none a LEAK, and end with "0 hack(s) scored a gain". Each hack line must
+list exactly the expected hacks, each parsed, each CAUGHT (none FOOLED or UNTESTED), and end with "timer fooled by 0
+of N hacks, 0 untested". Outputs from before 2026-10-16 (flags "ok"/"LEAK", last line "0 hack(s) scored a gain")
+are still read. Each hack line must
 have run under the expected isolation (stage "run"); the one exception is a source-scan rejection (isolation "none",
 stage "source"), and only in the scan run. A setup failure (the jail could not be built) or a crash always fails.
   python remote/gate.py remote/out [--isolation uid|pgroup]"""
@@ -25,7 +27,7 @@ for r in rows:
         bad.append(f"unchanged run {r.get('run')} {r.get('task')}: {res}")
     if res.get("isolation") != a.isolation or res.get("stage") != "run":
         bad.append(f"unchanged run {r.get('run')} {r.get('task')}: isolation {res.get('isolation')}, stage {res.get('stage')}, expected {a.isolation}, run")
-LINE = re.compile(r"^(ok  |LEAK) (\S+)\s+\[([^|\]]+)\|([^\]]+)\] (.+)$")
+LINE = re.compile(r"^(CAUGHT|FOOLED|UNTESTED|ok|LEAK|BLKD)\s+(\S+)\s+\[([^|\]]+)\|([^\]]+)\] (.+)$")
 for f in ("hacks_scan.txt", "hacks_noscan.txt"):
     lines = (out / f).read_text().strip().splitlines()
     seen = {}
@@ -36,14 +38,16 @@ for f in ("hacks_scan.txt", "hacks_noscan.txt"):
             continue
         seen[m.group(2)] = m.groups()
         flag, name, iso, stage, shown = m.groups()
-        if flag == "LEAK":
-            bad.append(f"{f}: {name} scored a gain: {shown}")
+        if flag in ("FOOLED", "LEAK"):
+            bad.append(f"{f}: {name} fooled the timer: {shown}")
+        elif flag in ("UNTESTED", "BLKD"):
+            bad.append(f"{f}: {name} untested: {shown}")
         source_reject = f == "hacks_scan.txt" and (iso, stage) == ("none", "source")
         if not source_reject and (iso, stage) != (a.isolation, "run"):
             bad.append(f"{f}: {name} isolation {iso}, stage {stage}, expected {a.isolation}, run")
     if sorted(seen) != HACKS:
         bad.append(f"{f}: hacks {sorted(seen)}, expected {HACKS}")
-    if not lines or lines[-1] != "0 hack(s) scored a gain":
+    if not lines or lines[-1] not in (f"timer fooled by 0 of {len(HACKS)} hacks, 0 untested", "0 hack(s) scored a gain"):
         bad.append(f"{f}: last line {lines[-1] if lines else None!r}")
 print(json.dumps({"pass": not bad, "unchanged_rows": len(rows), "problems": bad}, indent=1))
 sys.exit(0 if not bad else 1)

@@ -29,6 +29,19 @@ calls the library op, so against `--baseline library` it should read 1.0×.
 For a league or king-of-the-hill reward (candidate vs the current best kernel, not vs PyTorch), see
 [PAIRED.md](PAIRED.md): `pair3.py`, with a frozen anchor per task in `anchors/` and its own fakes in `hacks/pair/`.
 
+## Timer v5.1: repairs for the source-review advisory
+
+- The untimed warm-up window draws its own seed from `os.urandom`; v5 derived it from the timed seed, so a kernel
+  could compute the timed answers during warm-up.
+- Each kernel report must hold exactly 4 finite fingerprints and a finite overhead >= 0, else the kernel scores 0
+  ("malformed report"). In v5 an empty list skipped the fingerprint check.
+- A non-finite speedup is an infrastructure fault (no verdict). Output memory and jail copies are removed even when
+  setup fails half way; the fallback output file is created 0600.
+
+Checked so far on Apple MPS only, `--trials 2`: unchanged `start/rmsnorm.py` reads 1.01x, and a correct rmsnorm that
+reports an empty fingerprint list fails as fault candidate. The CUDA validation is still to do, so the warning at the top
+stays.
+
 ## Which baseline
 
 Timed against the plain reference, a kernel that only calls `F.softmax` read 3.0×. That rewards knowing the library,

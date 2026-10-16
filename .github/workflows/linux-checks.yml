@@ -52,6 +52,14 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Check tracked files for private wording
+        timeout-minutes: 3
+        run: |
+          timeout --signal=TERM --kill-after=10s 120s \
+            python tools/test_check_private_words.py
+          timeout --signal=TERM --kill-after=10s 120s \
+            python tools/check_private_words.py
+
       - name: Create a small isolated control environment
         timeout-minutes: 3
         run: |

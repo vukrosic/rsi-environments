@@ -54,3 +54,4 @@ __pycache__/
 
 # Private cross-agent coordination is never part of a public source export
 /agent-chat/
+.private-words
