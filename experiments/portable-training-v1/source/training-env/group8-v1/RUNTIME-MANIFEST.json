@@ -1,0 +1,106 @@
+{
+  "schema": "training-group8-public-runtime-v1",
+  "files": [
+    {
+      "path": "training-env/evaluate.py",
+      "sha256": "4bd535e61d8b38edc0d2f4f3d42eaa24046966114503e04050e3eb55da247bf7",
+      "bytes": 11002
+    },
+    {
+      "path": "training-env/worker.py",
+      "sha256": "9d7e52fd36a78ae8c31d1f0a7cb439c3a305a1727d3e9574c5fa29485fb4f588",
+      "bytes": 7722
+    },
+    {
+      "path": "training-env/grader.py",
+      "sha256": "f927a49eac8d56905107c91307092c9e01968e922f85e109a6ecce0cfdd858ac",
+      "bytes": 4666
+    },
+    {
+      "path": "training-env/protocol.py",
+      "sha256": "68df6d00d156f0f71a37715f2751b3b6de410b9d692aca4c7153afc7a1c8df99",
+      "bytes": 1299
+    },
+    {
+      "path": "training-env/checks.py",
+      "sha256": "227b5d50d11308a873654c0151ba4d949b2f77fa03660d910b9d62e842b26f74",
+      "bytes": 2762
+    },
+    {
+      "path": "training-env/data.py",
+      "sha256": "b1da3937fbacf32521a6d731530bf065b95eff043f787f2d2ef98ac21f29dcfb",
+      "bytes": 13402
+    },
+    {
+      "path": "training-env/tensor_hashes.py",
+      "sha256": "a5b4d3691fca66258941cf4544ec3bb2fad6b50dca45026cdea484ca378b747e",
+      "bytes": 2535
+    },
+    {
+      "path": "training-env/calibrate.py",
+      "sha256": "b7b3b651c41e0c396441b649011231edbcb352c68a1a4781059f7a72b07aa83b",
+      "bytes": 3790
+    },
+    {
+      "path": "training-env/process_control.py",
+      "sha256": "3b82a12b80ae4d271569f5dbfb1806c748cb22fdef904f2e20ac74bd91afd9d0",
+      "bytes": 7545
+    },
+    {
+      "path": "training-env/starter.py",
+      "sha256": "42b5161c57a4bed3ae7ebf9478e726542fcb7ba7d276f40fe4f9ef2bdce2cdd5",
+      "bytes": 2628
+    },
+    {
+      "path": "training-env/league_adapter.py",
+      "sha256": "2f982ed65483dbf20153c2b1a5286e8b9e75e29179c463a683902c9ecda01a28",
+      "bytes": 25881
+    },
+    {
+      "path": "training-env/training_league.py",
+      "sha256": "64414fcafa3d805f4bf026b391896b8011ebb37e9f3c2d211a47204aa7fa8249",
+      "bytes": 22702
+    },
+    {
+      "path": "suite/__init__.py",
+      "sha256": "47634269f2734ae9bd976090f5a3b04fa435854a017fe52f2539e9108cb54822",
+      "bytes": 85
+    },
+    {
+      "path": "suite/records.py",
+      "sha256": "a86530867b1a44551a7bfa3457e53baa3f1fd7900bb0f48dca69ef204fb548e8",
+      "bytes": 4869
+    },
+    {
+      "path": "suite/resources.py",
+      "sha256": "6406ebd44076feaa18bc6039497479cca113d6b5691c4dd4c4d8b7cb788d3e47",
+      "bytes": 3620
+    },
+    {
+      "path": "suite/league/__init__.py",
+      "sha256": "004fb082ad2bffebae0c5bbc7c4f60a1b34cf3f90585128897ba255a89b1c3df",
+      "bytes": 172
+    },
+    {
+      "path": "suite/league/controller.py",
+      "sha256": "966f77219a75a7866f54757e580985c1fe8b6e3467d06e3760224d51f633aa89",
+      "bytes": 23749
+    },
+    {
+      "path": "suite/league/episode.py",
+      "sha256": "7b4f5ae1f836ebbe6b513dc264e4b579c90e67ee1e4731ae9a02267ef54388c5",
+      "bytes": 1780
+    },
+    {
+      "path": "training-env/group8-v1/group_state.py",
+      "sha256": "48c441a35c766c6c8a052a97443788437eac6458513727ff613800364a2f37e6",
+      "bytes": 35481
+    },
+    {
+      "path": "training-env/group8-v1/group_adapter.py",
+      "sha256": "60c6c26acfd950cb227f41e374e913a8630bb612b6c046f200a77a8450921219",
+      "bytes": 9641
+    }
+  ],
+  "scope": "Runtime-only source successor; no jobs, tests, seed plans, coordination or run evidence; unexecuted."
+}

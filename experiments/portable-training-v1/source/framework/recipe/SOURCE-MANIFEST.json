@@ -1,0 +1,63 @@
+{
+  "files": {
+    "ASSET-MANIFEST.json": {
+      "bytes": 1697,
+      "sha256": "02b6e0c1547283a267dbe05d40dbbf88aeff84f0474e7b00c5dc1f3a6e8a3b40"
+    },
+    "NATIVE-SOURCE-PINS.json": {
+      "bytes": 8777,
+      "sha256": "df21aed51df98f9981335f5ba7945fbd0e531a5c60a8617be8f30a9240b14e4c"
+    },
+    "README.md": {
+      "bytes": 4376,
+      "sha256": "252fc5e46ca07b8c4ebb401b4fd758d17259ce12e3b0c2472738df007d5748f0"
+    },
+    "actor.py": {
+      "bytes": 16888,
+      "sha256": "b4bf3f6201b165c9d0b6b1c6cd9d27b28a09471ea8c2a0a99be9a0c06cc0b17a"
+    },
+    "common.py": {
+      "bytes": 7067,
+      "sha256": "24b18f82ea49e94ba90d2d69b5a799937dd37277b64913bfba7843c50e50ab03"
+    },
+    "download_assets.py": {
+      "bytes": 5379,
+      "sha256": "44246cc9f74804bae8d32fcba966e458bd197a1d38b42ae2f4fb818ee6476671"
+    },
+    "native_contract.py": {
+      "bytes": 8570,
+      "sha256": "4b30418551ca079af800d75d560962add1ecf11db6f5484a60dfd54d6c85f39a"
+    },
+    "native_episode.py": {
+      "bytes": 2577,
+      "sha256": "034166b663672ccb2a94a0d7b65b26a6e193a6233516817cb7641a7f92697015"
+    },
+    "policy_callback.py": {
+      "bytes": 5446,
+      "sha256": "2c0bc8f2e8c0afcc76752cdda2c8d6f502a1a3b5193d28b22a767d8dc64c62dc"
+    },
+    "recipe.py": {
+      "bytes": 6021,
+      "sha256": "f864b9950aa232ff66b7689fde9ce6e1921efb892162a4d747cd92e3f84921f0"
+    },
+    "run_recipe_rl.sh": {
+      "bytes": 711,
+      "sha256": "c1ce6aa2650853d2b912b17dff899cc2de0c62269e8a96fc10cc1e9da0da25b1"
+    },
+    "runner.py": {
+      "bytes": 45509,
+      "sha256": "29d8b856d23f086b22e833867bec615f9c338c399cfaf688580cc58a430ea7e8"
+    },
+    "starter-fixture.txt": {
+      "bytes": 2628,
+      "sha256": "42b5161c57a4bed3ae7ebf9478e726542fcb7ba7d276f40fe4f9ef2bdce2cdd5"
+    },
+    "test_recipe.py": {
+      "bytes": 9020,
+      "sha256": "6351849e87efca3b2f21a4ae680b56ad1b216c1ecb0a2e933d9f249ad628bfd8"
+    }
+  },
+  "schema": "recipe-grpo-source-v1",
+  "status": "authored and text-inspected; not imported, compiled, tested or executed locally",
+  "total_bytes": 124666
+}

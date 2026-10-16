@@ -1,0 +1,55 @@
+name: Experimental portable training source
+
+on:
+  push:
+    branches: ['experimental/portable-training-v1']
+    paths:
+      - 'experiments/portable-training-v1/**'
+      - '.github/workflows/portable-training-checks.yml'
+      - 'tools/check_private_words.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portable-training-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-and-metadata:
+    if: github.ref == 'refs/heads/experimental/portable-training-v1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      CUDA_VISIBLE_DEVICES: ''
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Check out experimental public source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          fetch-tags: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Check public source wording
+        timeout-minutes: 1
+        run: timeout --signal=TERM --kill-after=5s 30s python tools/check_private_words.py
+
+      - name: Verify exact portable source bytes
+        timeout-minutes: 1
+        working-directory: experiments/portable-training-v1/source
+        run: timeout --signal=TERM --kill-after=5s 30s python -I -S -B researcher.py
+
+      - name: Import metadata modules without model dependencies
+        timeout-minutes: 1
+        working-directory: experiments/portable-training-v1/source
+        run: timeout --signal=TERM --kill-after=5s 30s python -I -S -B researcher.py --metadata-imports

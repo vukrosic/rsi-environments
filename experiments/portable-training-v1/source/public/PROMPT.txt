@@ -1,0 +1,13 @@
+Improve a recipe that trains a fresh 5-million-parameter GPT on real TinyStories text. The model and data are fixed: 500 optimizer calls, batch 32, context 256. A separate evaluator reloads the weights and grades development cross-entropy; lower is better.
+
+Return exactly one JSON object with these six keys:
+lr: a number from 0.00001 to 0.01;
+warmup_frac: a number from 0 to 0.3;
+weight_decay: a number from 0 to 0.3;
+grad_clip: a number from 0.1 to 10;
+beta2: a number from 0.9 to 0.999;
+schedule: "cosine", "linear", or "constant".
+
+The trusted compiler applies your recipe to the fixed training code. Use finite JSON numbers, not booleans. Include all six keys once, with no extra keys, markdown, explanations, or Python code.
+
+Your reward compares your recipe with the frozen incumbent: incumbent_loss / (incumbent_loss + your_loss). A tie scores 0.5. The fixed starter is reported separately. Private validation controls promotion and is never training feedback. Choose a recipe to reduce independently graded loss within the fixed budget.

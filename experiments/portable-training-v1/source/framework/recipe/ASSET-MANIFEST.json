@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "model_id": "HuggingFaceTB/SmolLM2-135M-Instruct",
+  "revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+  "official_api": "https://huggingface.co/api/models/HuggingFaceTB/SmolLM2-135M-Instruct/revision/12fd25f77366fa6b3b4b768ec3050bf629380bac?blobs=true",
+  "download_prefix": "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/12fd25f77366fa6b3b4b768ec3050bf629380bac/",
+  "files": {
+    "config.json": {
+      "bytes": 861,
+      "git_blob_sha1": "36293b6099200eb8aeb55ae2c01bca2ba46d80d0"
+    },
+    "generation_config.json": {
+      "bytes": 132,
+      "git_blob_sha1": "da6c4d71a43aa7e6f785bdbb28ea5025438a73fa"
+    },
+    "merges.txt": {
+      "bytes": 466391,
+      "git_blob_sha1": "69503b13f727ba3812b6803e97442a6de05ef5eb"
+    },
+    "model.safetensors": {
+      "bytes": 269060552,
+      "git_blob_sha1": "2ef707371406f95f8aa91fb03a75f22f3c568299",
+      "sha256": "5af571cbf074e6d21a03528d2330792e532ca608f24ac70a143f6b369968ab8c"
+    },
+    "special_tokens_map.json": {
+      "bytes": 655,
+      "git_blob_sha1": "44719d2e365acac0637fd25a3acf46494ca45940"
+    },
+    "tokenizer.json": {
+      "bytes": 2104556,
+      "git_blob_sha1": "f922b1797f0c88e71addc8393787831f2477a4bd"
+    },
+    "tokenizer_config.json": {
+      "bytes": 3764,
+      "git_blob_sha1": "8c7b22013909450429303ed10be4398bd63f5457"
+    },
+    "vocab.json": {
+      "bytes": 800662,
+      "git_blob_sha1": "0ad5ecc2035b7031b88afb544ee95e2d49baa484"
+    }
+  },
+  "total_bytes": 272437573,
+  "scope": "Exact Instruct checkpoint only; exclude cached base model, ONNX exports and training artifacts. Server download script does not load or execute downloaded assets."
+}

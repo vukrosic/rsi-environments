@@ -1,0 +1,197 @@
+{
+  "schema": "training-researcher-export-files-v1",
+  "files": [
+    {
+      "target": "training-env/evaluate.py",
+      "bytes": 11002,
+      "sha256": "4bd535e61d8b38edc0d2f4f3d42eaa24046966114503e04050e3eb55da247bf7"
+    },
+    {
+      "target": "training-env/worker.py",
+      "bytes": 7722,
+      "sha256": "9d7e52fd36a78ae8c31d1f0a7cb439c3a305a1727d3e9574c5fa29485fb4f588"
+    },
+    {
+      "target": "training-env/grader.py",
+      "bytes": 4666,
+      "sha256": "f927a49eac8d56905107c91307092c9e01968e922f85e109a6ecce0cfdd858ac"
+    },
+    {
+      "target": "training-env/protocol.py",
+      "bytes": 1299,
+      "sha256": "68df6d00d156f0f71a37715f2751b3b6de410b9d692aca4c7153afc7a1c8df99"
+    },
+    {
+      "target": "training-env/checks.py",
+      "bytes": 2762,
+      "sha256": "227b5d50d11308a873654c0151ba4d949b2f77fa03660d910b9d62e842b26f74"
+    },
+    {
+      "target": "training-env/data.py",
+      "bytes": 13402,
+      "sha256": "b1da3937fbacf32521a6d731530bf065b95eff043f787f2d2ef98ac21f29dcfb"
+    },
+    {
+      "target": "training-env/tensor_hashes.py",
+      "bytes": 2535,
+      "sha256": "a5b4d3691fca66258941cf4544ec3bb2fad6b50dca45026cdea484ca378b747e"
+    },
+    {
+      "target": "training-env/calibrate.py",
+      "bytes": 3790,
+      "sha256": "b7b3b651c41e0c396441b649011231edbcb352c68a1a4781059f7a72b07aa83b"
+    },
+    {
+      "target": "training-env/process_control.py",
+      "bytes": 7545,
+      "sha256": "3b82a12b80ae4d271569f5dbfb1806c748cb22fdef904f2e20ac74bd91afd9d0"
+    },
+    {
+      "target": "training-env/starter.py",
+      "bytes": 2628,
+      "sha256": "42b5161c57a4bed3ae7ebf9478e726542fcb7ba7d276f40fe4f9ef2bdce2cdd5"
+    },
+    {
+      "target": "training-env/league_adapter.py",
+      "bytes": 25881,
+      "sha256": "2f982ed65483dbf20153c2b1a5286e8b9e75e29179c463a683902c9ecda01a28"
+    },
+    {
+      "target": "training-env/training_league.py",
+      "bytes": 22702,
+      "sha256": "64414fcafa3d805f4bf026b391896b8011ebb37e9f3c2d211a47204aa7fa8249"
+    },
+    {
+      "target": "suite/__init__.py",
+      "bytes": 85,
+      "sha256": "47634269f2734ae9bd976090f5a3b04fa435854a017fe52f2539e9108cb54822"
+    },
+    {
+      "target": "suite/records.py",
+      "bytes": 4869,
+      "sha256": "a86530867b1a44551a7bfa3457e53baa3f1fd7900bb0f48dca69ef204fb548e8"
+    },
+    {
+      "target": "suite/resources.py",
+      "bytes": 3620,
+      "sha256": "6406ebd44076feaa18bc6039497479cca113d6b5691c4dd4c4d8b7cb788d3e47"
+    },
+    {
+      "target": "suite/league/__init__.py",
+      "bytes": 172,
+      "sha256": "004fb082ad2bffebae0c5bbc7c4f60a1b34cf3f90585128897ba255a89b1c3df"
+    },
+    {
+      "target": "suite/league/controller.py",
+      "bytes": 23749,
+      "sha256": "966f77219a75a7866f54757e580985c1fe8b6e3467d06e3760224d51f633aa89"
+    },
+    {
+      "target": "suite/league/episode.py",
+      "bytes": 1780,
+      "sha256": "7b4f5ae1f836ebbe6b513dc264e4b579c90e67ee1e4731ae9a02267ef54388c5"
+    },
+    {
+      "target": "training-env/group8-v1/group_state.py",
+      "bytes": 35481,
+      "sha256": "48c441a35c766c6c8a052a97443788437eac6458513727ff613800364a2f37e6"
+    },
+    {
+      "target": "training-env/group8-v1/group_adapter.py",
+      "bytes": 9641,
+      "sha256": "60c6c26acfd950cb227f41e374e913a8630bb612b6c046f200a77a8450921219"
+    },
+    {
+      "target": "training-env/group8-v1/RUNTIME-MANIFEST.json",
+      "bytes": 3390,
+      "sha256": "f469c648e6b240fe0a390556e937637f8beba6f93e230b8bdf287b01ee2049e7"
+    },
+    {
+      "target": "consumer/journal.py",
+      "bytes": 11394,
+      "sha256": "54d2216561bc43c990a5772f89c1d5aa93cbe3aa61c34f064b66f4b494a80a94"
+    },
+    {
+      "target": "consumer/transaction.py",
+      "bytes": 17498,
+      "sha256": "95bd4356ef81dd78ea44edc61d9a5b1c01c7e6770501eaed951e91a78ffb054f"
+    },
+    {
+      "target": "consumer/native_bridge.py",
+      "bytes": 3498,
+      "sha256": "f8a36f2825af5403a898a359656dc97603e3133bae89b9b1c090ab0eed9d3c3c"
+    },
+    {
+      "target": "consumer/learner.py",
+      "bytes": 15111,
+      "sha256": "ed1e465e38db8f1b362d3f010258a700b16cd4d8f5cb31c056d6b0aa357128da"
+    },
+    {
+      "target": "consumer/NATIVE-MANIFEST.json",
+      "bytes": 3390,
+      "sha256": "f469c648e6b240fe0a390556e937637f8beba6f93e230b8bdf287b01ee2049e7"
+    },
+    {
+      "target": "consumer/SOURCE-MANIFEST.json",
+      "bytes": 1030,
+      "sha256": "6ba6dbcc3504807cbcc678ed14b27937cdffed0b1942c29b984232920813c320"
+    },
+    {
+      "target": "framework/recipe/common.py",
+      "bytes": 7067,
+      "sha256": "24b18f82ea49e94ba90d2d69b5a799937dd37277b64913bfba7843c50e50ab03"
+    },
+    {
+      "target": "framework/recipe/recipe.py",
+      "bytes": 6021,
+      "sha256": "f864b9950aa232ff66b7689fde9ce6e1921efb892162a4d747cd92e3f84921f0"
+    },
+    {
+      "target": "framework/recipe/starter-fixture.txt",
+      "bytes": 2628,
+      "sha256": "42b5161c57a4bed3ae7ebf9478e726542fcb7ba7d276f40fe4f9ef2bdce2cdd5"
+    },
+    {
+      "target": "framework/recipe/ASSET-MANIFEST.json",
+      "bytes": 1697,
+      "sha256": "02b6e0c1547283a267dbe05d40dbbf88aeff84f0474e7b00c5dc1f3a6e8a3b40"
+    },
+    {
+      "target": "framework/recipe/SOURCE-MANIFEST.json",
+      "bytes": 2078,
+      "sha256": "f5e5625dee8a0cb3f60eb4d3437b409665b8eb8edf91dc62fac3a62e599dbf54"
+    },
+    {
+      "target": "framework/grpo-helpers/grpo_pilot.py",
+      "bytes": 14541,
+      "sha256": "b930cc047f6430f90ba91f4481fca993fa73a034ec38d1eda9c8ca28ab65d7a8"
+    },
+    {
+      "target": "framework/grpo-helpers/sample.py",
+      "bytes": 9969,
+      "sha256": "3e5aab91fb22f05668fabea1e7a351ea3315028d019305cbd928cbb9417dfa07"
+    },
+    {
+      "target": "researcher.py",
+      "bytes": 2237,
+      "sha256": "6c211664af55e63190140d81d9bfe71e366825385fea4d2e5bfdd50f2c84f61c"
+    },
+    {
+      "target": "README.md",
+      "bytes": 2068,
+      "sha256": "06bb8b3a1f26efb3aa45625921cd76edaa8198b245f436575df397605fe88b61"
+    },
+    {
+      "target": "INTEGRATION.md",
+      "bytes": 5894,
+      "sha256": "696aa3d72150c5a6f9c3a7806752649344c8db698716578e41ebd61faece1833"
+    },
+    {
+      "target": "public/PROMPT.txt",
+      "bytes": 1047,
+      "sha256": "caa83fd3112152f2c65c624ea9958c52e364dd89d5ef09acea5cce481b330924"
+    }
+  ],
+  "runtime_state_included": false,
+  "private_candidate": true
+}

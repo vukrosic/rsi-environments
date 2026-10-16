@@ -1,0 +1,28 @@
+{
+  "schema": "training-researcher-group8-public-consumer-v1",
+  "files": {
+    "NATIVE-MANIFEST.json": {
+      "bytes": 3390,
+      "sha256": "f469c648e6b240fe0a390556e937637f8beba6f93e230b8bdf287b01ee2049e7"
+    },
+    "journal.py": {
+      "bytes": 11394,
+      "sha256": "54d2216561bc43c990a5772f89c1d5aa93cbe3aa61c34f064b66f4b494a80a94"
+    },
+    "learner.py": {
+      "bytes": 15111,
+      "sha256": "ed1e465e38db8f1b362d3f010258a700b16cd4d8f5cb31c056d6b0aa357128da"
+    },
+    "native_bridge.py": {
+      "bytes": 3498,
+      "sha256": "f8a36f2825af5403a898a359656dc97603e3133bae89b9b1c090ab0eed9d3c3c"
+    },
+    "transaction.py": {
+      "bytes": 17498,
+      "sha256": "95bd4356ef81dd78ea44edc61d9a5b1c01c7e6770501eaed951e91a78ffb054f"
+    }
+  },
+  "native_runtime_manifest_sha256": "f469c648e6b240fe0a390556e937637f8beba6f93e230b8bdf287b01ee2049e7",
+  "helper_sha256": "b930cc047f6430f90ba91f4481fca993fa73a034ec38d1eda9c8ca28ab65d7a8",
+  "status": "source-only; new identity; no old execution evidence transferred"
+}
