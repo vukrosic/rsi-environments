@@ -1,12 +1,12 @@
 # Kernel timer (bench3)
 
-A reward for "make this GPU kernel faster" that a kernel cannot fake by cheating the timer.
+A GPU kernel benchmark with output checks, timing controls and separate candidate/infrastructure verdicts.
 
 An LLM writes `kernel(...)`. `bench3.py` times it against the fastest version of the same math that needs no kernel
 work (PyTorch's own op, or the plain reference, eager or compiled) and returns the speedup: baseline time / kernel
 time. Outputs are checked against a plain PyTorch reference; a wrong answer scores 0. The kernel runs in its own
-process and, on Linux as root, under a uid of its own, so it cannot read the reference, swap the clock or keep
-working after the clock stops.
+process and, on Linux as root, under a uid of its own. These controls provide process separation; they do not
+establish a security sandbox for arbitrary hostile code. See the [dated v5 checks and limits](VALIDATION-V5.json).
 
 ```bash
 python bench3.py attention start/attention.py --trials 10   # last line is JSON: ok, speedup, why, stage, fault, isolation, baseline, timer

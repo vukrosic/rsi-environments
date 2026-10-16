@@ -1,5 +1,21 @@
 # Validation and evidence scope
 
+## Kernel timer v5 checks — October 16, 2026
+
+Returned RTX A2000 outputs report a passing gate with 12 unchanged rows and no
+listed problems. Ten process-identity and cleanup checks passed. The attention
+adversarial check ran 20 cases with scanning enabled and 20 with it disabled;
+the runner reported no gains above its threshold in either mode. These are
+checks of the tested cases, rather than exhaustive isolation or timing proof.
+
+The published `kernel-timer/bench3.py` hash matches the source hash supplied by
+the operator. Four returned output hashes and the precise evidence limits are
+in [the v5 verification record](kernel-timer/VALIDATION-V5.json). Individual
+unchanged-case rows and the check-runner source were not returned in this
+evidence set; output integrity does not independently attest the full remote
+runtime. These checks add no LLM learning claim and do not qualify speed rewards
+from the older kernel environment API.
+
 ## Inference API exception repair on main — October 15, 2026
 
 Current `main` separates action validation from evaluator execution. Exceptions

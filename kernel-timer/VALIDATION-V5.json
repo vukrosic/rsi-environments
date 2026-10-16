@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "review_date": "2026-10-16",
+  "scope": "Returned benchmark-check summaries and output integrity; no benchmark rerun during review",
+  "hardware_reported": "NVIDIA RTX A2000",
+  "torch_reported": "2.11.0+cu128",
+  "benchmark_source_sha256_operator_reported": "5462cde75bf1e6f791b49f373f7a663eccc793d95f95396d8b9ad6e1d739a3e0",
+  "public_benchmark_source_sha256_matches_report": true,
+  "independent_remote_executed_source_attestation": false,
+  "gate_summary": {
+    "pass": true,
+    "unchanged_rows": 12,
+    "problems": []
+  },
+  "individual_unchanged_rows_returned": false,
+  "process_cleanup_checks": {
+    "passed": 10,
+    "total": 10,
+    "scope": "Returned checks of owned child/grandchild UID, freeze/wake/cleanup and preserved bystander"
+  },
+  "adversarial_checks": {
+    "workload": "attention",
+    "cases_per_mode": 20,
+    "modes": [
+      "scan enabled",
+      "scan disabled"
+    ],
+    "runner_reported_gains_per_mode": [
+      0,
+      0
+    ],
+    "interpretation": "No tested case exceeded the runner gain threshold. Some ratios exceed1 within its tolerance; this is not an exhaustive security or estimator validation."
+  },
+  "output_sha256": {
+    "gate.json": "e0021732e1de0c6a850f2835f8c1c222b0e0fcbaae38fe31784c9fd918bd9ebc",
+    "jail_test.json": "df18387aeeef2f1261f27f54ec29c63dbceb0d352b4d0406a4f715b80ddf101d",
+    "hacks_scan.txt": "bae3cfb3dce7a3ce8ee7b2350ba14ba7a086888fc152d5e02dac2d1937485a94",
+    "hacks_noscan.txt": "4f6d0089f28103b9450dc5950848825a34513f0f5f0298ef0a8eaad4d7ef57d7"
+  },
+  "limits": [
+    "Gate summary reports12 unchanged rows; individual rows and check-runner source were not returned in this evidence set.",
+    "Output hashes and the matching published source hash do not independently attest every remote executable or runtime dependency.",
+    "These checks do not qualify all workloads, speed rewards, hostile-code isolation, model learning or outside adoption.",
+    "The benchmark is separate from the older kernel environment API and its reward advisories."
+  ]
+}
