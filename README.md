@@ -42,6 +42,8 @@ library baseline's speed; the example explains its measurement and provenance li
 selected 3.879× retime against PyTorch SDPA. It uses float16 dot products with
 float32 inputs/output; its measured error passes the documented task tolerance.
 
+[Kernel SFT seed and actual results](experiments/kernel-sft-seed/): 151 paired training examples; more code replies, with no demonstrated correctness improvement.
+
 ## Training Improvement CUDA example
 
 An LLM submits training code. The environment runs the task model, independently

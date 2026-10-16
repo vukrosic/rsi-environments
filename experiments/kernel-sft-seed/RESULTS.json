@@ -1,0 +1,593 @@
+{
+  "interpretation": "More replies containing code; no demonstrated correctness improvement and no causal speed gain.",
+  "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+  "evaluation_common": {
+    "samples_per_task_per_condition_per_seed": 16,
+    "temperature": 0.8,
+    "trials": 5,
+    "best_sample_retrials": 15,
+    "training_tasks": [
+      "rmsnorm",
+      "softmax",
+      "swiglu",
+      "cross_entropy",
+      "attention",
+      "attention_bwd",
+      "newton_schulz",
+      "sliding_window_attention",
+      "gqa_attention"
+    ],
+    "heldout_tasks": [
+      "decode_attention",
+      "selective_scan",
+      "int4_matmul"
+    ],
+    "evaluation_seed_labels": [
+      1,
+      2
+    ],
+    "seed_field_present_in_summary_JSON": false,
+    "task_code_and_sample_verdict_rows_returned": false,
+    "receipt_bound_timer_or_baseline_identity_returned": false
+  },
+  "pooled_counts": {
+    "base": {
+      "training": {
+        "samples": 288,
+        "has_code": 214,
+        "correct": 16
+      },
+      "heldout": {
+        "samples": 96,
+        "has_code": 67,
+        "correct": 5
+      }
+    },
+    "sft": {
+      "training": {
+        "samples": 288,
+        "has_code": 265,
+        "correct": 24
+      },
+      "heldout": {
+        "samples": 96,
+        "has_code": 89,
+        "correct": 2
+      }
+    }
+  },
+  "per_condition_and_seed": {
+    "base": {
+      "1": {
+        "seed_label_origin": "returned filename and owner description; no seed field in aggregate JSON",
+        "input_summary_sha256": "4e71e31543f6e8e79ba7a57a04339c713dc19be3fd30f3b052e662abd17519c2",
+        "tasks": {
+          "rmsnorm": {
+            "samples": 16,
+            "has_code": 11,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "softmax": {
+            "samples": 16,
+            "has_code": 11,
+            "correct": 1,
+            "best_speedup": 0.831,
+            "best_retimed": 0.937
+          },
+          "swiglu": {
+            "samples": 16,
+            "has_code": 11,
+            "correct": 2,
+            "best_speedup": 1.049,
+            "best_retimed": 1.053
+          },
+          "cross_entropy": {
+            "samples": 16,
+            "has_code": 11,
+            "correct": 2,
+            "best_speedup": 0.294,
+            "best_retimed": 0.275
+          },
+          "attention": {
+            "samples": 16,
+            "has_code": 14,
+            "correct": 1,
+            "best_speedup": 0.215,
+            "best_retimed": 0.221
+          },
+          "attention_bwd": {
+            "samples": 16,
+            "has_code": 13,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "newton_schulz": {
+            "samples": 16,
+            "has_code": 12,
+            "correct": 1,
+            "best_speedup": 0.88,
+            "best_retimed": 0.834
+          },
+          "sliding_window_attention": {
+            "samples": 16,
+            "has_code": 8,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "gqa_attention": {
+            "samples": 16,
+            "has_code": 7,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "decode_attention": {
+            "samples": 16,
+            "has_code": 8,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "selective_scan": {
+            "samples": 16,
+            "has_code": 11,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "int4_matmul": {
+            "samples": 16,
+            "has_code": 13,
+            "correct": 2,
+            "best_speedup": 0.319,
+            "best_retimed": 0.305
+          }
+        },
+        "partition_totals": {
+          "training": {
+            "samples": 144,
+            "has_code": 98,
+            "correct": 7
+          },
+          "heldout": {
+            "samples": 48,
+            "has_code": 32,
+            "correct": 2
+          }
+        }
+      },
+      "2": {
+        "seed_label_origin": "returned filename and owner description; no seed field in aggregate JSON",
+        "input_summary_sha256": "04d363a5c374cdba26aaceb64158d6211ca5fdb6536c8967eb8463c5a7c38b86",
+        "tasks": {
+          "rmsnorm": {
+            "samples": 16,
+            "has_code": 14,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "softmax": {
+            "samples": 16,
+            "has_code": 14,
+            "correct": 2,
+            "best_speedup": 0.395,
+            "best_retimed": 0.374
+          },
+          "swiglu": {
+            "samples": 16,
+            "has_code": 12,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "cross_entropy": {
+            "samples": 16,
+            "has_code": 15,
+            "correct": 3,
+            "best_speedup": 0.298,
+            "best_retimed": 0.276
+          },
+          "attention": {
+            "samples": 16,
+            "has_code": 12,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "attention_bwd": {
+            "samples": 16,
+            "has_code": 12,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "newton_schulz": {
+            "samples": 16,
+            "has_code": 15,
+            "correct": 3,
+            "best_speedup": 0.899,
+            "best_retimed": 0.881
+          },
+          "sliding_window_attention": {
+            "samples": 16,
+            "has_code": 12,
+            "correct": 1,
+            "best_speedup": 0.347,
+            "best_retimed": 0.35
+          },
+          "gqa_attention": {
+            "samples": 16,
+            "has_code": 10,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "decode_attention": {
+            "samples": 16,
+            "has_code": 11,
+            "correct": 3,
+            "best_speedup": 1.155,
+            "best_retimed": 1.141
+          },
+          "selective_scan": {
+            "samples": 16,
+            "has_code": 14,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "int4_matmul": {
+            "samples": 16,
+            "has_code": 10,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          }
+        },
+        "partition_totals": {
+          "training": {
+            "samples": 144,
+            "has_code": 116,
+            "correct": 9
+          },
+          "heldout": {
+            "samples": 48,
+            "has_code": 35,
+            "correct": 3
+          }
+        }
+      }
+    },
+    "sft": {
+      "1": {
+        "seed_label_origin": "returned filename and owner description; no seed field in aggregate JSON",
+        "input_summary_sha256": "8a3143b9c49ec0c032443132d003cac84fcc7b667b9328efaf9159684ec8e24e",
+        "tasks": {
+          "rmsnorm": {
+            "samples": 16,
+            "has_code": 15,
+            "correct": 5,
+            "best_speedup": 1.11,
+            "best_retimed": 0.936
+          },
+          "softmax": {
+            "samples": 16,
+            "has_code": 15,
+            "correct": 4,
+            "best_speedup": 1.011,
+            "best_retimed": 0.95
+          },
+          "swiglu": {
+            "samples": 16,
+            "has_code": 15,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "cross_entropy": {
+            "samples": 16,
+            "has_code": 14,
+            "correct": 2,
+            "best_speedup": 0.975,
+            "best_retimed": 0.952
+          },
+          "attention": {
+            "samples": 16,
+            "has_code": 15,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "attention_bwd": {
+            "samples": 16,
+            "has_code": 12,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "newton_schulz": {
+            "samples": 16,
+            "has_code": 16,
+            "correct": 1,
+            "best_speedup": 1.001,
+            "best_retimed": 0.972
+          },
+          "sliding_window_attention": {
+            "samples": 16,
+            "has_code": 13,
+            "correct": 2,
+            "best_speedup": 0.429,
+            "best_retimed": 0.428
+          },
+          "gqa_attention": {
+            "samples": 16,
+            "has_code": 12,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "decode_attention": {
+            "samples": 16,
+            "has_code": 16,
+            "correct": 1,
+            "best_speedup": 1.12,
+            "best_retimed": 1.126
+          },
+          "selective_scan": {
+            "samples": 16,
+            "has_code": 16,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "int4_matmul": {
+            "samples": 16,
+            "has_code": 16,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          }
+        },
+        "partition_totals": {
+          "training": {
+            "samples": 144,
+            "has_code": 127,
+            "correct": 14
+          },
+          "heldout": {
+            "samples": 48,
+            "has_code": 48,
+            "correct": 1
+          }
+        }
+      },
+      "2": {
+        "seed_label_origin": "returned filename and owner description; no seed field in aggregate JSON",
+        "input_summary_sha256": "81fd174f60c70eebc0e7b618241dde8c1a1d804ba18334d8e4f2a2d64647c80e",
+        "tasks": {
+          "rmsnorm": {
+            "samples": 16,
+            "has_code": 14,
+            "correct": 1,
+            "best_speedup": 0.921,
+            "best_retimed": 0.897
+          },
+          "softmax": {
+            "samples": 16,
+            "has_code": 16,
+            "correct": 2,
+            "best_speedup": 1.016,
+            "best_retimed": 0.955
+          },
+          "swiglu": {
+            "samples": 16,
+            "has_code": 16,
+            "correct": 1,
+            "best_speedup": 1.057,
+            "best_retimed": 1.052
+          },
+          "cross_entropy": {
+            "samples": 16,
+            "has_code": 16,
+            "correct": 4,
+            "best_speedup": 0.94,
+            "best_retimed": 0.761
+          },
+          "attention": {
+            "samples": 16,
+            "has_code": 16,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "attention_bwd": {
+            "samples": 16,
+            "has_code": 14,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "newton_schulz": {
+            "samples": 16,
+            "has_code": 16,
+            "correct": 2,
+            "best_speedup": 0.989,
+            "best_retimed": 0.992
+          },
+          "sliding_window_attention": {
+            "samples": 16,
+            "has_code": 15,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "gqa_attention": {
+            "samples": 16,
+            "has_code": 15,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "decode_attention": {
+            "samples": 16,
+            "has_code": 16,
+            "correct": 1,
+            "best_speedup": 1.161,
+            "best_retimed": 1.155
+          },
+          "selective_scan": {
+            "samples": 16,
+            "has_code": 10,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          },
+          "int4_matmul": {
+            "samples": 16,
+            "has_code": 15,
+            "correct": 0,
+            "best_speedup": null,
+            "best_retimed": null
+          }
+        },
+        "partition_totals": {
+          "training": {
+            "samples": 144,
+            "has_code": 138,
+            "correct": 10
+          },
+          "heldout": {
+            "samples": 48,
+            "has_code": 41,
+            "correct": 1
+          }
+        }
+      }
+    }
+  },
+  "pooled_unadjusted_tests": {
+    "method": "Two-sided Fisher exact test; sum fixed-margin hypergeometric tables with probability no larger than observed. Integer-combination arithmetic on saved aggregates only.",
+    "comparisons": {
+      "training_correct": {
+        "table_rows_base_then_sft_success_failure": [
+          [
+            16,
+            272
+          ],
+          [
+            24,
+            264
+          ]
+        ],
+        "two_sided_p_value": 0.25099360948612565
+      },
+      "training_has_code": {
+        "table_rows_base_then_sft_success_failure": [
+          [
+            214,
+            74
+          ],
+          [
+            265,
+            23
+          ]
+        ],
+        "two_sided_p_value": 1.3601385728674055e-08
+      },
+      "heldout_correct": {
+        "table_rows_base_then_sft_success_failure": [
+          [
+            5,
+            91
+          ],
+          [
+            2,
+            94
+          ]
+        ],
+        "two_sided_p_value": 0.4443977813241749
+      },
+      "heldout_has_code": {
+        "table_rows_base_then_sft_success_failure": [
+          [
+            67,
+            29
+          ],
+          [
+            89,
+            7
+          ]
+        ],
+        "two_sided_p_value": 6.892902970382396e-05
+      }
+    },
+    "assumptions_and_limits": [
+      "Pooled replies are treated as independent Bernoulli outcomes for this descriptive test.",
+      "Task heterogeneity, shared prompts, shared adapter and seed clustering are not modeled.",
+      "Two evaluation seeds are not independent training replications.",
+      "Four tests are unadjusted for multiple comparisons; not a paired or task-stratified analysis.",
+      "Non-significant correctness comparisons do not prove equal performance; the held-out decrease does not prove general harm."
+    ]
+  },
+  "training_record_metadata": {
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+    "rows_reported": 151,
+    "trained_rows_reported": 151,
+    "skipped_rows_reported": [],
+    "input_data_sha256_reported": "6455bd80e095e0b201d0cc8481dee7802ae2cf220b56b09ad0abbfeb212148ce",
+    "epochs_reported": 3,
+    "LoRA_rank_reported": 16,
+    "gradient_accumulation_reported": 8,
+    "learning_rate_reported": 0.0002,
+    "maximum_sequence_length_reported": 2048,
+    "training_seed_reported": 0,
+    "dtype_reported": "bfloat16",
+    "base_start_digest_reported": "c8fe15eac0e21c768a43977bf45dd7174b04c1b8cde5e0f2fe62b3e516430b2d",
+    "base_end_digest_reported": "c8fe15eac0e21c768a43977bf45dd7174b04c1b8cde5e0f2fe62b3e516430b2d",
+    "adapter_end_digest_reported": "37593383785fde7f306d75cc2c958599edb9117f0f1d21ac4013972174ab1546",
+    "checkpoint_bytes_returned_or_rehashed": false,
+    "adapter_start_digest_returned": false,
+    "weight_change_or_loss_improvement_proved": false
+  },
+  "owner_reported_training_configuration_not_verified_by_step_logs": {
+    "optimizer_steps": 57,
+    "epochs": 3,
+    "LoRA_rank": 16,
+    "LoRA_target_modules": [
+      "q_proj",
+      "v_proj"
+    ],
+    "scope": "Three epochs and rank also appear in returned argument metadata. Step count and target modules are owner reports, not independently observed optimizer/module records.",
+    "optimizer_step_or_loss_logs_returned": false
+  },
+  "prompt_context": {
+    "training": "151 reconstructed pre-patch prompts; library/reference wording and incomplete helper context retained.",
+    "evaluation": "Owner reports patched fastest-baseline prompts with helper definitions. Evaluation prompt text/source identity is absent from the returned aggregate summaries.",
+    "identical_training_evaluation_prompt_setup": false,
+    "nominal_base_sft_evaluation_config_matches": true
+  },
+  "public_dataset": {
+    "path": "../../datasets/kernel-sft-seed/kernel_sft_seed.jsonl",
+    "sha256": "60c5ec0ba86507951c1e53c69a42e0111010073d246bf175e3f546f52dc60bcd",
+    "rows": 151,
+    "description": "Sanitized task/messages projection of the recorded training input. Container bytes/hash differ from training input; all 151 task and prompt/reply strings match the preserved selected input exactly.",
+    "timing_rewards_or_weights_in_dataset": false
+  },
+  "returned_input_artifact_sha256": {
+    "base-s1-summary.json": "4e71e31543f6e8e79ba7a57a04339c713dc19be3fd30f3b052e662abd17519c2",
+    "base-s2-summary.json": "04d363a5c374cdba26aaceb64158d6211ca5fdb6536c8967eb8463c5a7c38b86",
+    "sft-s1-summary.json": "8a3143b9c49ec0c032443132d003cac84fcc7b667b9328efaf9159684ec8e24e",
+    "sft-s2-summary.json": "81fd174f60c70eebc0e7b618241dde8c1a1d804ba18334d8e4f2a2d64647c80e",
+    "sft-hashes.json": "edb5bf68628d7dd2c71b4334bbb6cf79a365b8959e29e0d9fa1ef6160384bf4a"
+  },
+  "speed_interpretation": "Per-task best_speedup/best_retimed fields are retained as reported audit detail only. No qualified speed reward, causal speed improvement or strongest-baseline claim follows from these selected summaries.",
+  "preparation_scope": "Saved JSON/UTF-8 source inspection, exact counts/combinatorial arithmetic and hashes only. No model, benchmark or training rerun.",
+  "exact_run_source_mutation_owner_report": "pending; no passing acceptance inferred",
+  "aggregate_failure_breakdown_limit": "Returned aggregates contain no per-sample failure categories, so infrastructure errors cannot be separated from unsuccessful code in these counts.",
+  "c16_infrastructure_fault_contamination_claimed": false
+}
