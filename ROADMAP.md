@@ -27,6 +27,8 @@ phase has not run. Three direct-store metadata fixture controls passed, but they
 do not establish a native API episode or published direct-store API. Alpha4's
 existing runs do not verify this new bundle or a fresh installation.
 
+An [experimental portable source preview](https://github.com/vukrosic/rsi-environments/tree/experimental/portable-training-v1/experiments/portable-training-v1) is now available on a separate branch. Its [Linux workflow](https://github.com/vukrosic/rsi-environments/actions/runs/38868361965) verified 38 source-file hashes and imported the metadata interfaces without model dependencies. This is source-loading evidence; full dependency installation, native GPU execution and the new bundle's release checks remain pending.
+
 ## Other environment releases
 
 - [x] Publish the standalone NVIDIA kernel benchmark with library baselines and RTX A2000 control results. This is separate from the older kernel environment API and its timing advisories.
