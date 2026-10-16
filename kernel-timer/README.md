@@ -2,6 +2,11 @@
 
 A GPU kernel benchmark with output checks, timing controls and separate candidate/infrastructure verdicts.
 
+**Known reward-integrity gaps:** the published v5 source has predictable timed
+inputs and an incomplete fingerprint-length check. Keep its speedups out of RL
+updates and incumbent promotion pending repairs and validation. See
+[the source-review advisory](KNOWN-LIMITATIONS.md).
+
 An LLM writes `kernel(...)`. `bench3.py` times it against the fastest version of the same math that needs no kernel
 work (PyTorch's own op, or the plain reference, eager or compiled) and returns the speedup: baseline time / kernel
 time. Outputs are checked against a plain PyTorch reference; a wrong answer scores 0. The kernel runs in its own

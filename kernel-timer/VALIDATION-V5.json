@@ -42,5 +42,17 @@
     "Output hashes and the matching published source hash do not independently attest every remote executable or runtime dependency.",
     "These checks do not qualify all workloads, speed rewards, hostile-code isolation, model learning or outside adoption.",
     "The benchmark is separate from the older kernel environment API and its reward advisories."
-  ]
+  ],
+  "later_source_review": {
+    "date": "2026-10-16",
+    "status": "known reward-integrity gaps; not qualified for RL timing rewards or incumbent promotion",
+    "advisory": "KNOWN-LIMITATIONS.md",
+    "findings": [
+      "Untimed warm-up seed reveals the following timed seed.",
+      "Fingerprint comparison accepts lists shorter than the number of output sets."
+    ],
+    "bypass_executed_during_review": false,
+    "historical_exploitation_claim": false,
+    "replacement_validation": "pending"
+  }
 }

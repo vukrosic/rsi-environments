@@ -2,6 +2,11 @@
 
 ## Kernel timer v5 checks — October 16, 2026
 
+**Additional source findings:** predictable timed inputs and an incomplete
+fingerprint-length check limit this version’s timing integrity. Keep its
+speedups out of RL updates pending repair and validation; see
+[the advisory](kernel-timer/KNOWN-LIMITATIONS.md). No bypass was run in this review.
+
 Returned RTX A2000 outputs report a passing gate with 12 unchanged rows and no
 listed problems. Ten process-identity and cleanup checks passed. The attention
 adversarial check ran 20 cases with scanning enabled and 20 with it disabled;

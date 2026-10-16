@@ -28,6 +28,10 @@ Kernel speed rewards have unresolved timing-boundary and predictable-input issue
 
 See [Features](FEATURES.md) for the development status and [VALIDATION.md](VALIDATION.md) for checks of the published code. The published examples do not include an outer LLM trainer or establish learning gains or recursive self-improvement.
 
+**Kernel benchmark advisory — October 16:** current v5 has predictable timed
+inputs and an incomplete fingerprint-length check. Its speedups remain excluded
+from RL updates pending repairs and validation. See [the known limits](kernel-timer/KNOWN-LIMITATIONS.md).
+
 | Benchmark | Published checks |
 |---|---|
 | [Corrected NVIDIA kernel benchmark](kernel-timer/) | Library baselines and matched timing; 16 known fakes scored no gain on RTX A2000. The first 36-step GRPO pilot showed no measured improvement. |
