@@ -283,7 +283,7 @@ task turns out to have no headroom; write down why in the README.
   - delayed rewards
 - **Starter:** epsilon-greedy 0.1.
 - **References:** UCB1, Thompson sampling, LinUCB for the contextual task.
-- **Taken by:**
+- **Taken by:** in progress (2026-10-16)
 
 ## Systems and data
 

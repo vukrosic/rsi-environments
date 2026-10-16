@@ -26,8 +26,8 @@ simulated GPU, kept for a rebuild on a real GPU (no new simulated arenas).
 | env-spec-decode | the draft policy for speculative decoding | real |
 | env-tokenizer-league | the tokenizer trainer | real |
 | env-attn-pattern | the sparse attention mask under a budget | real |
-| env-loss-design | the loss function and its gradient | building |
-| env-augment-policy | the data augmentation | building |
+| env-loss-design | the loss function and its gradient | real |
+| env-augment-policy | the data augmentation | real |
 | env-distill-target | the targets built from teacher logits | real |
 | env-pos-encoding | the positional encoding, scored on longer sequences | real |
 | env-moe-router | the mixture-of-experts router | real |
